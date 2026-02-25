@@ -1,0 +1,5 @@
+{
+  "name": "LinkedIn Automation Suite",
+  "description": "A local browser automation tool for managing LinkedIn connections and campaigns safely.",
+  "requestFramePermissions": []
+}
