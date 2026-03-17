@@ -390,23 +390,27 @@ class AutomationEngine {
                   if (personalizedMessage) {
                       console.log("Attempting to add a note...");
                       
+                      // Ensure we are using the most active LinkedIn page reference
+                      const allPages = await page.browser().pages();
+                      const activePage = allPages.find(p => p.url().includes('linkedin.com')) || page;
+
                       let addNoteClicked = false;
                       
-                      // Strategy A: Scoped Native Click inside confirmed modal
-                      if (modalHandle) {
-                          try {
-                              console.log("Searching for 'Add a note' button inside modal using native selector...");
-                              const addNoteBtn = await modalHandle.$('button[aria-label="Add a note"]');
-                              if (addNoteBtn) {
-                                  await addNoteBtn.scrollIntoView();
-                                  await humanDelay(300, 500);
-                                  await addNoteBtn.click(); // Puppeteer native click (CDP-level)
-                                  console.log("Native click successful for 'Add a note' inside modal.");
+                      // Strategy A: Coordinate-based Mouse Click (Real Mouse Simulation)
+                      try {
+                          console.log("Searching for 'Add a note' button for coordinate-based click...");
+                          const addNoteBtn = await activePage.waitForSelector('[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]', { visible: true, timeout: 5000 });
+                          if (addNoteBtn) {
+                              const box = await addNoteBtn.boundingBox();
+                              if (box) {
+                                  // Real mouse click at the center of the button
+                                  await activePage.mouse.click(box.x + box.width/2, box.y + box.height/2);
+                                  console.log("Coordinate-based mouse click successful.");
                                   addNoteClicked = true;
                               }
-                          } catch (e) {
-                              console.warn("Native scoped click failed, falling back to forceClick...");
                           }
+                      } catch (e: any) {
+                          console.warn("Coordinate-based click failed:", e.message);
                       }
                       
                       // Strategy B: Fallback to broad forceClick
@@ -418,7 +422,7 @@ class AutomationEngine {
                             "//span[contains(text(), 'Add a note')]/..",
                             "//a[contains(., 'Add a note')]"
                           ];
-                          addNoteClicked = await forceClick(page, addNoteXPaths);
+                          addNoteClicked = await forceClick(activePage, addNoteXPaths);
                       }
                       
                       if (addNoteClicked) {
@@ -426,11 +430,11 @@ class AutomationEngine {
                           let typed = false;
                           for (const boxXPath of SELECTORS.MESSAGE_BOX) {
                               try {
-                                  const boxHandle = await page.waitForSelector(`xpath/${boxXPath}`, { timeout: 2000 });
+                                  const boxHandle = await activePage.waitForSelector(`xpath/${boxXPath}`, { timeout: 2000 });
                                   if (boxHandle) {
                                       await boxHandle.focus();
                                       await boxHandle.click();
-                                      await page.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
+                                      await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
                                       typed = true;
                                       break;
                                   }
@@ -441,7 +445,7 @@ class AutomationEngine {
 
                           if (!typed) {
                              // Absolute fallback: use evaluate to set the text directly
-                             await page.evaluate((msg: string) => {
+                             await activePage.evaluate((msg: string) => {
                                 const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
                                 if (box) {
                                   (box as any).innerHTML = msg;
