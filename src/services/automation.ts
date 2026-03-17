@@ -437,94 +437,23 @@ class AutomationEngine {
               }
 
               if (clicked) {
-                  console.log("Connect button clicked. Waiting for page to stabilize...");
-                  await humanDelay(6000, 8000); // Increased by 2s
-
-                  // Refresh tab reference before snapshot to ensure we are looking at the right one
-                  page = await syncTab() || page;
-
-                  // --- DEBUG SNAPSHOT ---
-                  try {
-                      console.log('Waiting 3s for modal to mount before snapshot...');
-                      await new Promise(resolve => setTimeout(resolve, 3000));
-                      
-                      const fs = await import('fs');
-                      const currentUrl = page.url();
-                      console.log('Snapshot page URL:', currentUrl);
-                      console.log('Snapshot page title:', await page.title());
-                      
-                      const html = await cdpEvaluate(page, `document.documentElement.outerHTML`);
-                      fs.writeFileSync('debug_snapshot.html', html);
-                      console.log('Snapshot saved to debug_snapshot.html');
-                  } catch (e: any) {
-                      console.error('Failed to save debug snapshot:', e.message);
-                  }
-
-                  // --- MODAL HANDLING LAYER ---
-                  // Increased patience for modal detection
-                  const sendInviteModalSelector = '[data-test-modal-id="send-invite-modal"]';
-                  const genericModalSelector = '.artdeco-modal, [role="dialog"], .ip-modal';
-                  let modalHandle = null;
-                  
-                  try {
-                      console.log("Waiting for send-invite-modal...");
-                      const startTime = Date.now();
-                      let found = false;
-                      while (Date.now() - startTime < 10000) {
-                          if (await cdpEvaluate(page, `document.querySelector("${sendInviteModalSelector}") !== null`)) {
-                              found = true;
-                              break;
-                          }
-                          await new Promise(r => setTimeout(r, 1000));
-                      }
-                      if (found) modalHandle = true; 
-                  } catch (e) {
-                      console.log("Send-invite-modal not found, checking for generic modal...");
-                      try {
-                          const startTime = Date.now();
-                          let found = false;
-                          while (Date.now() - startTime < 4000) {
-                              if (await cdpEvaluate(page, `document.querySelector("${genericModalSelector}") !== null`)) {
-                                  found = true;
-                                  break;
-                              }
-                              await new Promise(r => setTimeout(r, 1000));
-                          }
-                          if (found) modalHandle = true;
-                      } catch (err) {
-                          console.log("No explicit modal detected. Proceeding to scan page for 'Add a note' buttons...");
-                      }
-                  }
-
-                  if (modalHandle) {
-                      console.log("Modal detected, stabilizing for 2.3s...");
-                      await humanDelay(2300, 2400); // Increased by 2s
-                  }
+                  console.log("Connect button clicked. Waiting for modal...");
+                  await humanDelay(4000, 6000);
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
                   const otherXPath = "//button[contains(., 'Other')]";
-                  const otherClicked = await forceClick(page, otherXPath, 4000); // Increased by 2s
+                  const otherClicked = await forceClick(page, otherXPath, 4000); 
                   if (otherClicked) {
                       console.log("Handling 'How do you know' modal...");
-                      await humanDelay(3500, 4500); // Increased by 2s
-                      // Sometimes it's 'Next', sometimes it's 'Connect'
+                      await humanDelay(3500, 4500); 
                       const nextStepXPaths = [
                         "//button[contains(., 'Connect') and not(contains(., 'Other'))]",
                         "//button[contains(., 'Next')]",
                         "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Connect')]",
                         "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Next')]"
                       ];
-                      await forceClick(page, nextStepXPaths, 4500); // Increased by 2s
-                      await humanDelay(4500, 6000); // Increased by 2s
-                      
-                      // Re-check for modal after 'Other' flow
-                      try {
-                          const startTime = Date.now();
-                          while (Date.now() - startTime < 6000) {
-                              if (await cdpEvaluate(page, `document.querySelector("${sendInviteModalSelector}") !== null`)) break;
-                              await new Promise(r => setTimeout(r, 1000));
-                          }
-                      } catch (e) {}
+                      await forceClick(page, nextStepXPaths, 4500); 
+                      await humanDelay(4500, 6000); 
                   }
 
                   // 3. Add Note
@@ -535,111 +464,88 @@ class AutomationEngine {
                       
                       // Refresh tab for note step
                       const activePage = await syncTab() || page;
+                      const client = await activePage.target().createCDPSession();
 
-                      let addNoteClicked = false;
-                      
-                      // Strategy A: Coordinate-based Mouse Click (Real Mouse Simulation)
-                      try {
-                          console.log("Searching for 'Add a note' button for coordinate-based click...");
-                          const addNoteSelector = '[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]';
-                          const startTime = Date.now();
-                          let found = false;
-                          while (Date.now() - startTime < 7000) {
-                              if (await cdpEvaluate(activePage, `document.querySelector("${addNoteSelector}") !== null`)) {
-                                  found = true;
-                                  break;
-                              }
-                              await new Promise(r => setTimeout(r, 1000));
-                          }
-                          
-                          if (found) {
-                              const addNoteBtn = await activePage.$(addNoteSelector);
-                              if (addNoteBtn) {
-                                  const box = await addNoteBtn.boundingBox();
-                                  if (box) {
-                                      // Real mouse click at the center of the button
-                                      await activePage.mouse.click(box.x + box.width/2, box.y + box.height/2);
-                                      console.log("Coordinate-based mouse click successful.");
-                                      addNoteClicked = true;
-                                  }
-                              }
-                          }
-                      } catch (e: any) {
-                          console.warn("Coordinate-based click failed:", e.message);
-                      }
-                      
-                      // Strategy B: Fallback to broad forceClick
-                      if (!addNoteClicked) {
-                          const addNoteXPaths = [
-                            ...SELECTORS.ADD_NOTE,
-                            "//button[contains(@aria-label, 'Add a note')]",
-                            "//button[contains(., 'Add a note')]",
-                            "//span[contains(text(), 'Add a note')]/..",
-                            "//a[contains(., 'Add a note')]"
-                          ];
-                          addNoteClicked = await forceClick(activePage, addNoteXPaths);
-                      }
-                      
-                      if (addNoteClicked) {
-                      console.log("'Add a note' clicked, waiting for text area...");
-                      let typed = false;
-                      for (const boxXPath of SELECTORS.MESSAGE_BOX) {
-                          try {
-                              const startTime = Date.now();
-                              let boxReady = false;
-                              while (Date.now() - startTime < 4000) {
-                                  if (await cdpEvaluate(activePage, `document.evaluate("${boxXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
-                                      boxReady = true;
-                                      break;
-                                  }
-                                  await new Promise(r => setTimeout(r, 500));
-                              }
-
-                              if (boxReady) {
-                                  const boxHandle = await activePage.$(`xpath/${boxXPath}`);
-                                  if (boxHandle) {
-                                      await boxHandle.focus();
-                                      await boxHandle.click();
-                                      await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
-                                      typed = true;
-                                      break;
-                                  }
-                              }
-                          } catch (e) {
-                              continue;
-                          }
+                      // Wait for button using CDP polling (Fix from User)
+                      let addNoteFound = false;
+                      for (let i = 0; i < 20; i++) {
+                        const result = await client.send('Runtime.evaluate', {
+                          expression: `!!document.querySelector('button[aria-label="Add a note"]')`,
+                          // @ts-ignore
+                          bypassCSP: true
+                        });
+                        if (result.result.value === true) { addNoteFound = true; break; }
+                        await new Promise(r => setTimeout(r, 500));
                       }
 
-                      if (!typed) {
-                         // Absolute fallback: use cdpEvaluate to set the text directly
-                         await cdpEvaluate(activePage, `
-                            (function() {
-                                const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
-                                if (box) {
-                                  box.innerHTML = "${personalizedMessage}";
-                                  box.value = "${personalizedMessage}";
-                                  box.dispatchEvent(new Event('input', { bubbles: true }));
-                                  box.dispatchEvent(new Event('change', { bubbles: true }));
+                      if (addNoteFound) {
+                        await client.send('Runtime.evaluate', {
+                          expression: `document.querySelector('button[aria-label="Add a note"]').click()`,
+                          // @ts-ignore
+                          bypassCSP: true
+                        });
+                        console.log('Add a note clicked via CDP!');
+                        
+                        await humanDelay(2000, 3000);
+                        
+                        // Finalize typing into message box
+                        let typed = false;
+                        for (const boxXPath of SELECTORS.MESSAGE_BOX) {
+                            try {
+                                const startTime = Date.now();
+                                let boxReady = false;
+                                while (Date.now() - startTime < 4000) {
+                                    if (await cdpEvaluate(activePage, `document.evaluate("${boxXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
+                                        boxReady = true;
+                                        break;
+                                    }
+                                    await new Promise(r => setTimeout(r, 500));
                                 }
-                            })()
-                         `);
-                      }
 
-                      await humanDelay(3000, 4000); // Increased by 2s
-                      noteAdded = true;
-                      }
-                      }
+                                if (boxReady) {
+                                    const boxHandle = await activePage.$(`xpath/${boxXPath}`);
+                                    if (boxHandle) {
+                                        await boxHandle.focus();
+                                        await boxHandle.click();
+                                        await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
+                                        typed = true;
+                                        break;
+                                    }
+                                }
+                            } catch (e) {
+                                continue;
+                            }
+                        }
 
-                      // 4. Final Send
-                      const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
+                        if (!typed) {
+                           await cdpEvaluate(activePage, `
+                              (function() {
+                                  const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
+                                  if (box) {
+                                    box.innerHTML = "${personalizedMessage}";
+                                    box.value = "${personalizedMessage}";
+                                    box.dispatchEvent(new Event('input', { bubbles: true }));
+                                    box.dispatchEvent(new Event('change', { bubbles: true }));
+                                  }
+                              })()
+                           `);
+                        }
 
-                      if (sendClicked) {
-                      await humanDelay(5000, 7000); // Increased by 2s
+                        await humanDelay(3000, 4000);
+                        noteAdded = true;
+                      }
+                      await client.detach();
+                  }
+
+                  // 4. Final Send
+                  const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
+
+                  if (sendClicked) {
+                      await humanDelay(5000, 7000);
                       console.log(`Connection request sent ${noteAdded ? 'with' : 'without'} note!`);
                       Leads.updateStatus(lead.id, 'CONNECT_SENT');
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
-                      } else {
-                      // Final check: did it send anyway?
+                  } else {
                       const sentCheck = await cdpEvaluate(page, `
                         (function() {
                           const body = document.body.innerText.toLowerCase();
@@ -647,50 +553,46 @@ class AutomationEngine {
                         })()
                       `);
                       if (sentCheck) {
-                      Leads.updateStatus(lead.id, 'CONNECT_SENT');
-                      Logs.add(lead.id, 'CONNECT', 'SUCCESS', 'Connection request sent (Verified via status)');
+                        Leads.updateStatus(lead.id, 'CONNECT_SENT');
+                        Logs.add(lead.id, 'CONNECT', 'SUCCESS', 'Connection request sent (Verified via status)');
                       } else {
-                      throw new Error("Failed to click final Send button and status did not change.");
+                        throw new Error("Failed to click final Send button and status did not change.");
                       }
-                      }
-                      } else {
-                      throw new Error("Connect button not found or could not be clicked.");
-                      }
-                      } else if (lead.status === 'MSG_QUEUED' || lead.status === 'CONNECTED') {
-                      // --- MESSAGING FLOW ---
-                      if (!pageState.isConnected) {
-                      console.warn("Lead not connected yet, skipping message.");
-                      continue; 
-                      }
+                  }
+              } else {
+                  throw new Error("Connect button not found or could not be clicked.");
+              }
+          } else if (lead.status === 'MSG_QUEUED' || lead.status === 'CONNECTED') {
+              // --- MESSAGING FLOW ---
+              if (!pageState.isConnected) {
+                  console.warn("Lead not connected yet, skipping message.");
+                  continue; 
+              }
 
-                      console.log("Initiating message flow...");
-                      const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
-                      try {
-                      const startTime = Date.now();
-                      let msgReady = false;
-                      while (Date.now() - startTime < 7000) {
-                          if (await cdpEvaluate(page, `document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
-                              msgReady = true;
-                              break;
-                          }
-                          await new Promise(r => setTimeout(r, 1000));
+              console.log("Initiating message flow...");
+              const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
+              try {
+                  const startTime = Date.now();
+                  let msgReady = false;
+                  while (Date.now() - startTime < 7000) {
+                      if (await cdpEvaluate(page, `document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
+                          msgReady = true;
+                          break;
                       }
-                      
-                      if (msgReady) {
-                      const messageHandle = await page.$(`xpath/${messageXPath}`);
-                      if (messageHandle) {
-                      // DOM-level click for message button
+                      await new Promise(r => setTimeout(r, 1000));
+                  }
+                  
+                  if (msgReady) {
                       await cdpEvaluate(page, `
                           (function() {
                               const el = document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                               if (el) el.click();
                           })()
                       `);
-                      await humanDelay(5000, 7000); // Increased by 2s
+                      await humanDelay(5000, 7000); 
 
                       const msgText = lead.message ? replacePlaceholders(lead.message, lead) : "Hi " + lead.first_name;
 
-                      // Focus and type into the editor
                       const editorSelector = '.msg-form__contenteditable';
                       const editorStartTime = Date.now();
                       let editorReady = false;
@@ -703,38 +605,35 @@ class AutomationEngine {
                       }
                       
                       if (editorReady) {
-                      await page.click(editorSelector);
-                      await page.type(editorSelector, msgText, { delay: 80 });
-                      await humanDelay(3500, 4500); // Increased by 2s
+                          await page.click(editorSelector);
+                          await page.type(editorSelector, msgText, { delay: 80 });
+                          await humanDelay(3500, 4500); 
 
-                      const sendMsgSelector = 'button.msg-form__send-button';
-                      const sendStartTime = Date.now();
-                      let sendReady = false;
-                      while (Date.now() - sendStartTime < 7000) {
-                          if (await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}") !== null`)) {
-                              sendReady = true;
-                              break;
+                          const sendMsgSelector = 'button.msg-form__send-button';
+                          const sendStartTime = Date.now();
+                          let sendReady = false;
+                          while (Date.now() - sendStartTime < 7000) {
+                              if (await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}") !== null`)) {
+                                  sendReady = true;
+                                  break;
+                              }
+                              await new Promise(r => setTimeout(r, 1000));
                           }
-                          await new Promise(r => setTimeout(r, 1000));
-                      }
-                      
-                      if (sendReady) {                          // DOM-level click for send button
-                          await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}").click()`);
-                          await humanDelay(4000, 6000); // Increased by 2s
-                          console.log("Message sent!");
-                          Leads.updateStatus(lead.id, 'MSG_SENT');
-                          Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent to connection');
+                          
+                          if (sendReady) {
+                              await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}").click()`);
+                              await humanDelay(4000, 6000); 
+                              console.log("Message sent!");
+                              Leads.updateStatus(lead.id, 'MSG_SENT');
+                              Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent to connection');
+                          } else {
+                              throw new Error("Could not find Send message button");
+                          }
                       } else {
-                          throw new Error("Could not find Send message button");
-                      }
-                      } else {
-                        throw new Error("Could not find message editor");
+                          throw new Error("Could not find message editor");
                       }
                   } else {
                       throw new Error("Message button not found");
-                  }
-                  } else {
-                      throw new Error("Message button not found (wait timeout)");
                   }
               } catch (e: any) {
                   throw new Error("Failed to send message: " + e.message);
