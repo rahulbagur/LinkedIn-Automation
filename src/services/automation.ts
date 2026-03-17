@@ -14,37 +14,32 @@ const humanDelay = (min: number, max: number) => {
 };
 
 /**
- * DOM-level clicker. 
- * This bypasses LinkedIn's UI lock by triggering the React event system directly.
+ * DOM-level clicker with Puppeteer native fallback and React-compatible event dispatching.
  */
-const forceClick = async (page: Page, xpaths: string | string[], timeout = 5000) => {
+const forceClick = async (page: Page, xpaths: string | string[], timeout = 3000) => {
   const xpathArray = Array.isArray(xpaths) ? xpaths : [xpaths];
   
   for (const xpath of xpathArray) {
     try {
-      const handle = await page.waitForSelector(`xpath/${xpath}`, { timeout: 3000 });
+      const handle = await page.waitForSelector(`xpath/${xpath}`, { timeout });
       if (handle) {
         await handle.scrollIntoView();
-        await humanDelay(800, 1500);
+        await humanDelay(500, 1000); // Wait for modal/UI stability
 
-        // Capture element info before clicking for better debugging
-        const elementInfo = await page.evaluate((el: any) => {
-          return {
-            tagName: el.tagName,
-            text: el.innerText || el.getAttribute('aria-label') || 'no text',
-            id: el.id
-          };
-        }, handle);
-
-        // Proper DOM-level click to trigger React event system
+        // Attempt React-compatible event dispatching
         const success = await page.evaluate((el: any) => {
           if (!el) return false;
-          (el as HTMLElement).click();
+          
+          // Dispatch sequence for React/Modern UI compatibility
+          const opts = { bubbles: true, cancelable: true, view: window };
+          el.dispatchEvent(new MouseEvent('mousedown', opts));
+          el.dispatchEvent(new MouseEvent('mouseup', opts));
+          el.dispatchEvent(new MouseEvent('click', opts));
           return true;
         }, handle);
         
         if (success) {
-          console.log(`Successfully clicked <${elementInfo.tagName.toLowerCase()}> "${elementInfo.text}" (ID: ${elementInfo.id}) using XPath: ${xpath}`);
+          console.log(`React-compatible click sequence dispatched for: ${xpath}`);
           return true;
         }
       }
@@ -88,16 +83,19 @@ const SELECTORS = {
   ADD_NOTE: [
     "//button[@aria-label='Add a note']",
     "//button[contains(., 'Add a note')]",
+    "//button[contains(., 'Add Note')]",
     "//div[contains(@class, 'artdeco-modal')]//button[contains(., 'Add a note')]",
     "//button[contains(@class, 'artdeco-button--secondary') and contains(., 'Add a note')]",
-    "/html/body/div[1]/div[4]//div/div[1]/div/div/div[3]/button[1]",
-    "//button[.//span[text()='Add a note']]"
+    "//button[contains(@class, 'artdeco-button--secondary') and (contains(., 'Add note') or contains(., 'Add a note'))]",
+    "//button[.//span[text()='Add a note']]",
+    "//button[.//span[text()='Add note']]"
   ],
   MESSAGE_BOX: [
     "//textarea[@name='message' or @id='custom-message']",
     "//*[@role='textbox' or @aria-multiline='true']",
     "//div[contains(@class, 'msg-form__contenteditable')]",
-    "//div[contains(@class, 'ql-editor')]"
+    "//div[contains(@class, 'ql-editor')]",
+    "//textarea[contains(@class, 'artdeco-text-area__element')]"
   ]
 };
 
@@ -345,8 +343,14 @@ class AutomationEngine {
                   if (otherClicked) {
                       console.log("Handling 'How do you know' modal...");
                       await humanDelay(1500, 2500);
-                      const connectModalXPath = "//button[contains(., 'Connect') and not(contains(., 'Other'))]";
-                      await forceClick(page, connectModalXPath, 2500);
+                      // Sometimes it's 'Next', sometimes it's 'Connect'
+                      const nextStepXPaths = [
+                        "//button[contains(., 'Connect') and not(contains(., 'Other'))]",
+                        "//button[contains(., 'Next')]",
+                        "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Connect')]",
+                        "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Next')]"
+                      ];
+                      await forceClick(page, nextStepXPaths, 2500);
                       await humanDelay(2500, 4000);
                   }
 
