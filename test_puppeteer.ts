@@ -5,7 +5,7 @@ import puppeteer from 'puppeteer';
     console.log('Launching Puppeteer...');
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security', '--bypass-csp']
     });
     console.log('Browser launched successfully');
     const page = await browser.newPage();

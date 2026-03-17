@@ -14,7 +14,34 @@ const humanDelay = (min: number, max: number) => {
 };
 
 /**
+ * CDP-based evaluation to bypass strict CSP.
+ */
+const cdpEvaluate = async (page: Page, expression: string, args: any[] = []) => {
+  const client = await page.target().createCDPSession();
+  
+  // Replace arguments in the expression if provided
+  let finalExpression = expression;
+  args.forEach((arg, i) => {
+    const replacement = typeof arg === 'string' ? `"${arg}"` : JSON.stringify(arg);
+    finalExpression = finalExpression.replace(new RegExp(`arg_${i}`, 'g'), replacement);
+  });
+
+  const result = await client.send('Runtime.evaluate', {
+    expression: finalExpression,
+    returnByValue: true,
+    userGesture: true,
+    awaitPromise: true,
+    // @ts-ignore - Specific bypass flag as requested
+    bypassCSP: true
+  } as any);
+  
+  await client.detach();
+  return result.result.value;
+};
+
+/**
  * DOM-level clicker with Puppeteer native fallback and Ember/React-compatible event dispatching.
+ * Uses CDP to bypass CSP.
  */
 const forceClick = async (page: Page, selectors: string | string[], timeout = 3000) => {
   const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
@@ -23,42 +50,48 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
     try {
       const isXPath = selector.startsWith('/') || selector.startsWith('(');
       
-      await page.waitForFunction(
-        (sel, isXP) => {
-          if (isXP) {
-            return document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null;
+      // Polling for element visibility via CDP
+      const startTime = Date.now();
+      let found = false;
+      while (Date.now() - startTime < timeout) {
+          const checkExpression = isXPath 
+            ? `document.evaluate("${selector}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`
+            : `document.querySelector("${selector}") !== null`;
+          
+          if (await cdpEvaluate(page, checkExpression)) {
+              found = true;
+              break;
           }
-          return document.querySelector(sel) !== null;
-        },
-        { timeout },
-        selector, isXPath
-      );
+          await new Promise(r => setTimeout(r, 500));
+      }
 
-      const fullSelector = isXPath ? `xpath/${selector}` : selector;
-      const handle = await page.$(fullSelector);
-      if (handle) {
-        await handle.scrollIntoView();
-        await humanDelay(300, 600); // Wait for UI/Modal stability
+      if (!found) continue;
 
-        // Attempt Ember-compatible event dispatching
-        const success = await handle.evaluate((el: any) => {
-          if (!el) return false;
-          
-          // Ember.js often requires focus before event dispatching
-          if (typeof el.focus === 'function') el.focus();
-          
-          // Dispatch sequence for Modern UI compatibility
-          const opts = { bubbles: true, cancelable: true, view: window };
-          el.dispatchEvent(new MouseEvent('mousedown', opts));
-          el.dispatchEvent(new MouseEvent('mouseup', opts));
-          el.dispatchEvent(new MouseEvent('click', opts));
+      const clickExpression = `
+        (function() {
+          const sel = "${selector}";
+          const isXP = ${isXPath};
+          const el = isXP 
+            ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue
+            : document.querySelector(sel);
+            
+          if (el) {
+              if (typeof el.scrollIntoView === 'function') el.scrollIntoView();
+              if (typeof el.focus === 'function') el.focus();
+              
+              const opts = { bubbles: true, cancelable: true, view: window };
+              el.dispatchEvent(new MouseEvent('mousedown', opts));
+              el.dispatchEvent(new MouseEvent('mouseup', opts));
+              el.dispatchEvent(new MouseEvent('click', opts));
+              return true;
+          }
+          return false;
+        })()
+      `;
+
+      if (await cdpEvaluate(page, clickExpression)) {
+          console.log(`CDP-based click successful for: ${selector}`);
           return true;
-        });
-        
-        if (success) {
-          console.log(`Ember-compatible click sequence dispatched for: ${selector}`);
-          return true;
-        }
       }
     } catch (e) {
       continue;
@@ -185,7 +218,14 @@ class AutomationEngine {
           });
           
           const pages = await this.browser!.pages();
+          console.log('--- Connected to Browser ---');
+          pages.forEach((p, i) => console.log(`Tab ${i}: ${p.url()}`));
+          console.log('---------------------------');
+
           page = pages.find(p => p.url().includes('linkedin.com')) || await this.browser!.newPage();
+          
+          // Bypass CSP for the page
+          await page.setBypassCSP(true);
           
           console.log('Session verified via remote debugging.');
           await humanDelay(2000, 4000);
@@ -271,9 +311,19 @@ class AutomationEngine {
                   
                   // Wait for LinkedIn to finish rendering the React/Ember app
                   try {
-                      await page.waitForFunction(() => document.querySelector('#w-react-root > *') !== null, { timeout: 15000 });
+                      const rootCheck = `document.querySelector('#w-react-root > *') !== null`;
+                      const startTime = Date.now();
+                      let ready = false;
+                      while (Date.now() - startTime < 15000) {
+                          if (await cdpEvaluate(page, rootCheck)) {
+                              ready = true;
+                              break;
+                          }
+                          await new Promise(r => setTimeout(r, 1000));
+                      }
+                      if (!ready) console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
                   } catch (e) {
-                      console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
+                      console.warn("Error checking for #w-react-root, proceeding anyway...");
                   }
                   
                   await humanDelay(7000, 12000); // Increased by 2s
@@ -300,28 +350,32 @@ class AutomationEngine {
           await humanDelay(4000, 6000); // Increased by 2s
 
           // --- ROBUSTNESS LAYER: Close any blocking chat windows ---
-          await page.evaluate(() => {
-              const chatHeader = document.querySelector('.msg-overlay-bubble-header');
-              if (chatHeader) {
-                  const closeBtn = chatHeader.querySelector('button[aria-label^="Close"], .msg-overlay-bubble-header__control--close');
-                  if (closeBtn) (closeBtn as HTMLElement).click();
-              }
-          });
+          await cdpEvaluate(page, `
+              (function() {
+                const chatHeader = document.querySelector('.msg-overlay-bubble-header');
+                if (chatHeader) {
+                    const closeBtn = chatHeader.querySelector('button[aria-label^="Close"], .msg-overlay-bubble-header__control--close');
+                    if (closeBtn) closeBtn.click();
+                }
+              })()
+          `);
 
           // Determine Action: Connect or Message
-          const pageState = await page.evaluate(() => {
-              const buttons = Array.from(document.querySelectorAll('button'));
-              const isPending = buttons.some(b => {
-                  const t = b.innerText.toLowerCase();
-                  return t.includes('pending') || t.includes('requested') || t.includes('withdraw');
-              });
-              const isConnected = buttons.some(b => {
-                  const text = b.innerText.toLowerCase();
-                  return (text === 'message' || text.includes('send message')) && 
-                         (b.classList.contains('artdeco-button--primary') || b.classList.contains('pvs-profile-actions__action'));
-              });
-              return { isPending, isConnected };
-          });
+          const pageState = await cdpEvaluate(page, `
+              (function() {
+                const buttons = Array.from(document.querySelectorAll('button'));
+                const isPending = buttons.some(b => {
+                    const t = b.innerText.toLowerCase();
+                    return t.includes('pending') || t.includes('requested') || t.includes('withdraw');
+                });
+                const isConnected = buttons.some(b => {
+                    const text = b.innerText.toLowerCase();
+                    return (text === 'message' || text.includes('send message')) && 
+                           (b.classList.contains('artdeco-button--primary') || b.classList.contains('pvs-profile-actions__action'));
+                });
+                return { isPending, isConnected };
+              })()
+          `);
 
           if (lead.status === 'NEW' || lead.status === 'CONNECT_QUEUED') {
               if (pageState.isConnected) {
@@ -359,7 +413,7 @@ class AutomationEngine {
                   // --- DEBUG SNAPSHOT ---
                   try {
                       const fs = await import('fs');
-                      const html = await page.evaluate(() => document.documentElement.outerHTML);
+                      const html = await cdpEvaluate(page, `document.documentElement.outerHTML`);
                       fs.writeFileSync('debug_snapshot.html', html);
                       console.log('Snapshot saved to debug_snapshot.html');
                       console.log('Current page URL:', page.url());
@@ -375,13 +429,29 @@ class AutomationEngine {
                   
                   try {
                       console.log("Waiting for send-invite-modal...");
-                      await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 10000 }, sendInviteModalSelector);
-                      modalHandle = await page.$(sendInviteModalSelector);
+                      const startTime = Date.now();
+                      let found = false;
+                      while (Date.now() - startTime < 10000) {
+                          if (await cdpEvaluate(page, `document.querySelector("${sendInviteModalSelector}") !== null`)) {
+                              found = true;
+                              break;
+                          }
+                          await new Promise(r => setTimeout(r, 1000));
+                      }
+                      if (found) modalHandle = true; 
                   } catch (e) {
                       console.log("Send-invite-modal not found, checking for generic modal...");
                       try {
-                          await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 4000 }, genericModalSelector);
-                          modalHandle = await page.$(genericModalSelector);
+                          const startTime = Date.now();
+                          let found = false;
+                          while (Date.now() - startTime < 4000) {
+                              if (await cdpEvaluate(page, `document.querySelector("${genericModalSelector}") !== null`)) {
+                                  found = true;
+                                  break;
+                              }
+                              await new Promise(r => setTimeout(r, 1000));
+                          }
+                          if (found) modalHandle = true;
                       } catch (err) {
                           console.log("No explicit modal detected. Proceeding to scan page for 'Add a note' buttons...");
                       }
@@ -410,8 +480,11 @@ class AutomationEngine {
                       
                       // Re-check for modal after 'Other' flow
                       try {
-                          await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 6000 }, sendInviteModalSelector);
-                          modalHandle = await page.$(sendInviteModalSelector);
+                          const startTime = Date.now();
+                          while (Date.now() - startTime < 6000) {
+                              if (await cdpEvaluate(page, `document.querySelector("${sendInviteModalSelector}") !== null`)) break;
+                              await new Promise(r => setTimeout(r, 1000));
+                          }
                       } catch (e) {}
                   }
 
@@ -431,15 +504,26 @@ class AutomationEngine {
                       try {
                           console.log("Searching for 'Add a note' button for coordinate-based click...");
                           const addNoteSelector = '[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]';
-                          await activePage.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 7000 }, addNoteSelector);
-                          const addNoteBtn = await activePage.$(addNoteSelector);
-                          if (addNoteBtn) {
-                              const box = await addNoteBtn.boundingBox();
-                              if (box) {
-                                  // Real mouse click at the center of the button
-                                  await activePage.mouse.click(box.x + box.width/2, box.y + box.height/2);
-                                  console.log("Coordinate-based mouse click successful.");
-                                  addNoteClicked = true;
+                          const startTime = Date.now();
+                          let found = false;
+                          while (Date.now() - startTime < 7000) {
+                              if (await cdpEvaluate(activePage, `document.querySelector("${addNoteSelector}") !== null`)) {
+                                  found = true;
+                                  break;
+                              }
+                              await new Promise(r => setTimeout(r, 1000));
+                          }
+                          
+                          if (found) {
+                              const addNoteBtn = await activePage.$(addNoteSelector);
+                              if (addNoteBtn) {
+                                  const box = await addNoteBtn.boundingBox();
+                                  if (box) {
+                                      // Real mouse click at the center of the button
+                                      await activePage.mouse.click(box.x + box.width/2, box.y + box.height/2);
+                                      console.log("Coordinate-based mouse click successful.");
+                                      addNoteClicked = true;
+                                  }
                               }
                           }
                       } catch (e: any) {
@@ -463,14 +547,25 @@ class AutomationEngine {
                       let typed = false;
                       for (const boxXPath of SELECTORS.MESSAGE_BOX) {
                           try {
-                              await activePage.waitForFunction((sel) => document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null, { timeout: 4000 }, boxXPath);
-                              const boxHandle = await activePage.$(`xpath/${boxXPath}`);
-                              if (boxHandle) {
-                                  await boxHandle.focus();
-                                  await boxHandle.click();
-                                  await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
-                                  typed = true;
-                                  break;
+                              const startTime = Date.now();
+                              let boxReady = false;
+                              while (Date.now() - startTime < 4000) {
+                                  if (await cdpEvaluate(activePage, `document.evaluate("${boxXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
+                                      boxReady = true;
+                                      break;
+                                  }
+                                  await new Promise(r => setTimeout(r, 500));
+                              }
+
+                              if (boxReady) {
+                                  const boxHandle = await activePage.$(`xpath/${boxXPath}`);
+                                  if (boxHandle) {
+                                      await boxHandle.focus();
+                                      await boxHandle.click();
+                                      await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
+                                      typed = true;
+                                      break;
+                                  }
                               }
                           } catch (e) {
                               continue;
@@ -478,16 +573,18 @@ class AutomationEngine {
                       }
 
                       if (!typed) {
-                         // Absolute fallback: use evaluate to set the text directly
-                         await activePage.evaluate((msg: string) => {
-                            const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
-                            if (box) {
-                              (box as any).innerHTML = msg;
-                              (box as any).value = msg;
-                              box.dispatchEvent(new Event('input', { bubbles: true }));
-                              box.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                         }, personalizedMessage);
+                         // Absolute fallback: use cdpEvaluate to set the text directly
+                         await cdpEvaluate(activePage, `
+                            (function() {
+                                const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
+                                if (box) {
+                                  box.innerHTML = "${personalizedMessage}";
+                                  box.value = "${personalizedMessage}";
+                                  box.dispatchEvent(new Event('input', { bubbles: true }));
+                                  box.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            })()
+                         `);
                       }
 
                       await humanDelay(3000, 4000); // Increased by 2s
@@ -505,10 +602,12 @@ class AutomationEngine {
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
                       } else {
                       // Final check: did it send anyway?
-                      const sentCheck = await page.evaluate(() => {
-                      const body = document.body.innerText.toLowerCase();
-                      return body.includes('invitation sent') || body.includes('invite sent') || body.includes('pending') || body.includes('withdraw');
-                      });
+                      const sentCheck = await cdpEvaluate(page, `
+                        (function() {
+                          const body = document.body.innerText.toLowerCase();
+                          return body.includes('invitation sent') || body.includes('invite sent') || body.includes('pending') || body.includes('withdraw');
+                        })()
+                      `);
                       if (sentCheck) {
                       Leads.updateStatus(lead.id, 'CONNECT_SENT');
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', 'Connection request sent (Verified via status)');
@@ -529,27 +628,60 @@ class AutomationEngine {
                       console.log("Initiating message flow...");
                       const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
                       try {
-                      await page.waitForFunction((sel) => document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null, { timeout: 7000 }, messageXPath);
+                      const startTime = Date.now();
+                      let msgReady = false;
+                      while (Date.now() - startTime < 7000) {
+                          if (await cdpEvaluate(page, `document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
+                              msgReady = true;
+                              break;
+                          }
+                          await new Promise(r => setTimeout(r, 1000));
+                      }
+                      
+                      if (msgReady) {
                       const messageHandle = await page.$(`xpath/${messageXPath}`);
                       if (messageHandle) {
                       // DOM-level click for message button
-                      await messageHandle.evaluate((btn: any) => (btn as HTMLElement).click());
+                      await cdpEvaluate(page, `
+                          (function() {
+                              const el = document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                              if (el) el.click();
+                          })()
+                      `);
                       await humanDelay(5000, 7000); // Increased by 2s
 
                       const msgText = lead.message ? replacePlaceholders(lead.message, lead) : "Hi " + lead.first_name;
 
                       // Focus and type into the editor
                       const editorSelector = '.msg-form__contenteditable';
-                      await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 7000 }, editorSelector);
+                      const editorStartTime = Date.now();
+                      let editorReady = false;
+                      while (Date.now() - editorStartTime < 7000) {
+                          if (await cdpEvaluate(page, `document.querySelector("${editorSelector}") !== null`)) {
+                              editorReady = true;
+                              break;
+                          }
+                          await new Promise(r => setTimeout(r, 1000));
+                      }
+                      
+                      if (editorReady) {
                       await page.click(editorSelector);
                       await page.type(editorSelector, msgText, { delay: 80 });
                       await humanDelay(3500, 4500); // Increased by 2s
 
                       const sendMsgSelector = 'button.msg-form__send-button';
-                      await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 7000 }, sendMsgSelector);
-                      const sendMsgBtn = await page.$(sendMsgSelector);
-                      if (sendMsgBtn) {                          // DOM-level click for send button
-                          await sendMsgBtn.evaluate((btn: any) => (btn as HTMLElement).click());
+                      const sendStartTime = Date.now();
+                      let sendReady = false;
+                      while (Date.now() - sendStartTime < 7000) {
+                          if (await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}") !== null`)) {
+                              sendReady = true;
+                              break;
+                          }
+                          await new Promise(r => setTimeout(r, 1000));
+                      }
+                      
+                      if (sendReady) {                          // DOM-level click for send button
+                          await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}").click()`);
                           await humanDelay(4000, 6000); // Increased by 2s
                           console.log("Message sent!");
                           Leads.updateStatus(lead.id, 'MSG_SENT');
@@ -557,8 +689,14 @@ class AutomationEngine {
                       } else {
                           throw new Error("Could not find Send message button");
                       }
+                      } else {
+                        throw new Error("Could not find message editor");
+                      }
                   } else {
                       throw new Error("Message button not found");
+                  }
+                  } else {
+                      throw new Error("Message button not found (wait timeout)");
                   }
               } catch (e: any) {
                   throw new Error("Failed to send message: " + e.message);
