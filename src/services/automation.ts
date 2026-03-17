@@ -21,11 +21,21 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
   
   for (const selector of selectorArray) {
     try {
-      // Auto-detect XPath vs CSS
       const isXPath = selector.startsWith('/') || selector.startsWith('(');
-      const fullSelector = isXPath ? `xpath/${selector}` : selector;
       
-      const handle = await page.waitForSelector(fullSelector, { timeout });
+      await page.waitForFunction(
+        (sel, isXP) => {
+          if (isXP) {
+            return document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null;
+          }
+          return document.querySelector(sel) !== null;
+        },
+        { timeout },
+        selector, isXPath
+      );
+
+      const fullSelector = isXPath ? `xpath/${selector}` : selector;
+      const handle = await page.$(fullSelector);
       if (handle) {
         await handle.scrollIntoView();
         await humanDelay(300, 600); // Wait for UI/Modal stability
@@ -261,7 +271,7 @@ class AutomationEngine {
                   
                   // Wait for LinkedIn to finish rendering the React/Ember app
                   try {
-                      await page.waitForSelector('#w-react-root > *', { timeout: 15000 });
+                      await page.waitForFunction(() => document.querySelector('#w-react-root > *') !== null, { timeout: 15000 });
                   } catch (e) {
                       console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
                   }
@@ -349,7 +359,7 @@ class AutomationEngine {
                   // --- DEBUG SNAPSHOT ---
                   try {
                       const fs = await import('fs');
-                      const html = await page.content();
+                      const html = await page.evaluate(() => document.documentElement.outerHTML);
                       fs.writeFileSync('debug_snapshot.html', html);
                       console.log('Snapshot saved to debug_snapshot.html');
                       console.log('Current page URL:', page.url());
@@ -365,11 +375,13 @@ class AutomationEngine {
                   
                   try {
                       console.log("Waiting for send-invite-modal...");
-                      modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 10000 }); // Increased by 2s
+                      await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 10000 }, sendInviteModalSelector);
+                      modalHandle = await page.$(sendInviteModalSelector);
                   } catch (e) {
                       console.log("Send-invite-modal not found, checking for generic modal...");
                       try {
-                          modalHandle = await page.waitForSelector(genericModalSelector, { timeout: 4000 }); // Increased by 2s
+                          await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 4000 }, genericModalSelector);
+                          modalHandle = await page.$(genericModalSelector);
                       } catch (err) {
                           console.log("No explicit modal detected. Proceeding to scan page for 'Add a note' buttons...");
                       }
@@ -398,7 +410,8 @@ class AutomationEngine {
                       
                       // Re-check for modal after 'Other' flow
                       try {
-                          modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 6000 }); // Increased by 2s
+                          await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 6000 }, sendInviteModalSelector);
+                          modalHandle = await page.$(sendInviteModalSelector);
                       } catch (e) {}
                   }
 
@@ -417,7 +430,9 @@ class AutomationEngine {
                       // Strategy A: Coordinate-based Mouse Click (Real Mouse Simulation)
                       try {
                           console.log("Searching for 'Add a note' button for coordinate-based click...");
-                          const addNoteBtn = await activePage.waitForSelector('[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]', { visible: true, timeout: 7000 }); // Increased by 2s
+                          const addNoteSelector = '[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]';
+                          await activePage.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 7000 }, addNoteSelector);
+                          const addNoteBtn = await activePage.$(addNoteSelector);
                           if (addNoteBtn) {
                               const box = await addNoteBtn.boundingBox();
                               if (box) {
@@ -444,92 +459,96 @@ class AutomationEngine {
                       }
                       
                       if (addNoteClicked) {
-                          console.log("'Add a note' clicked, waiting for text area...");
-                          let typed = false;
-                          for (const boxXPath of SELECTORS.MESSAGE_BOX) {
-                              try {
-                                  const boxHandle = await activePage.waitForSelector(`xpath/${boxXPath}`, { timeout: 4000 }); // Increased by 2s
-                                  if (boxHandle) {
-                                      await boxHandle.focus();
-                                      await boxHandle.click();
-                                      await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
-                                      typed = true;
-                                      break;
-                                  }
-                              } catch (e) {
-                                  continue;
+                      console.log("'Add a note' clicked, waiting for text area...");
+                      let typed = false;
+                      for (const boxXPath of SELECTORS.MESSAGE_BOX) {
+                          try {
+                              await activePage.waitForFunction((sel) => document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null, { timeout: 4000 }, boxXPath);
+                              const boxHandle = await activePage.$(`xpath/${boxXPath}`);
+                              if (boxHandle) {
+                                  await boxHandle.focus();
+                                  await boxHandle.click();
+                                  await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
+                                  typed = true;
+                                  break;
                               }
+                          } catch (e) {
+                              continue;
                           }
-
-                          if (!typed) {
-                             // Absolute fallback: use evaluate to set the text directly
-                             await activePage.evaluate((msg: string) => {
-                                const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
-                                if (box) {
-                                  (box as any).innerHTML = msg;
-                                  (box as any).value = msg;
-                                  box.dispatchEvent(new Event('input', { bubbles: true }));
-                                  box.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                             }, personalizedMessage);
-                          }
-                          
-                          await humanDelay(3000, 4000); // Increased by 2s
-                          noteAdded = true;
                       }
-                  }
 
-                  // 4. Final Send
-                  const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
+                      if (!typed) {
+                         // Absolute fallback: use evaluate to set the text directly
+                         await activePage.evaluate((msg: string) => {
+                            const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
+                            if (box) {
+                              (box as any).innerHTML = msg;
+                              (box as any).value = msg;
+                              box.dispatchEvent(new Event('input', { bubbles: true }));
+                              box.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                         }, personalizedMessage);
+                      }
 
-                  if (sendClicked) {
+                      await humanDelay(3000, 4000); // Increased by 2s
+                      noteAdded = true;
+                      }
+                      }
+
+                      // 4. Final Send
+                      const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
+
+                      if (sendClicked) {
                       await humanDelay(5000, 7000); // Increased by 2s
                       console.log(`Connection request sent ${noteAdded ? 'with' : 'without'} note!`);
                       Leads.updateStatus(lead.id, 'CONNECT_SENT');
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
-                  } else {
+                      } else {
                       // Final check: did it send anyway?
                       const sentCheck = await page.evaluate(() => {
-                        const body = document.body.innerText.toLowerCase();
-                        return body.includes('invitation sent') || body.includes('invite sent') || body.includes('pending') || body.includes('withdraw');
+                      const body = document.body.innerText.toLowerCase();
+                      return body.includes('invitation sent') || body.includes('invite sent') || body.includes('pending') || body.includes('withdraw');
                       });
                       if (sentCheck) {
-                         Leads.updateStatus(lead.id, 'CONNECT_SENT');
-                         Logs.add(lead.id, 'CONNECT', 'SUCCESS', 'Connection request sent (Verified via status)');
+                      Leads.updateStatus(lead.id, 'CONNECT_SENT');
+                      Logs.add(lead.id, 'CONNECT', 'SUCCESS', 'Connection request sent (Verified via status)');
                       } else {
-                         throw new Error("Failed to click final Send button and status did not change.");
+                      throw new Error("Failed to click final Send button and status did not change.");
                       }
-                  }
-              } else {
-                  throw new Error("Connect button not found or could not be clicked.");
-              }
-          } else if (lead.status === 'MSG_QUEUED' || lead.status === 'CONNECTED') {
-              // --- MESSAGING FLOW ---
-              if (!pageState.isConnected) {
-                  console.warn("Lead not connected yet, skipping message.");
-                  continue; 
-              }
+                      }
+                      } else {
+                      throw new Error("Connect button not found or could not be clicked.");
+                      }
+                      } else if (lead.status === 'MSG_QUEUED' || lead.status === 'CONNECTED') {
+                      // --- MESSAGING FLOW ---
+                      if (!pageState.isConnected) {
+                      console.warn("Lead not connected yet, skipping message.");
+                      continue; 
+                      }
 
-              console.log("Initiating message flow...");
-              const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
-              try {
-                  const messageHandle = await page.waitForSelector(`xpath/${messageXPath}`, { timeout: 7000 }); // Increased by 2s
-                  if (messageHandle) {
+                      console.log("Initiating message flow...");
+                      const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
+                      try {
+                      await page.waitForFunction((sel) => document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null, { timeout: 7000 }, messageXPath);
+                      const messageHandle = await page.$(`xpath/${messageXPath}`);
+                      if (messageHandle) {
                       // DOM-level click for message button
                       await messageHandle.evaluate((btn: any) => (btn as HTMLElement).click());
                       await humanDelay(5000, 7000); // Increased by 2s
-                      
+
                       const msgText = lead.message ? replacePlaceholders(lead.message, lead) : "Hi " + lead.first_name;
-                      
+
                       // Focus and type into the editor
-                      await page.waitForSelector('.msg-form__contenteditable', { timeout: 7000 }); // Increased by 2s
-                      await page.click('.msg-form__contenteditable');
-                      await page.type('.msg-form__contenteditable', msgText, { delay: 80 });
+                      const editorSelector = '.msg-form__contenteditable';
+                      await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 7000 }, editorSelector);
+                      await page.click(editorSelector);
+                      await page.type(editorSelector, msgText, { delay: 80 });
                       await humanDelay(3500, 4500); // Increased by 2s
 
-                      const sendMsgBtn = await page.waitForSelector('button.msg-form__send-button', { timeout: 7000 }); // Increased by 2s
-                      if (sendMsgBtn) {
-                          // DOM-level click for send button
+                      const sendMsgSelector = 'button.msg-form__send-button';
+                      await page.waitForFunction((sel) => document.querySelector(sel) !== null, { timeout: 7000 }, sendMsgSelector);
+                      const sendMsgBtn = await page.$(sendMsgSelector);
+                      if (sendMsgBtn) {                          // DOM-level click for send button
                           await sendMsgBtn.evaluate((btn: any) => (btn as HTMLElement).click());
                           await humanDelay(4000, 6000); // Increased by 2s
                           console.log("Message sent!");
