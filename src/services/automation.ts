@@ -420,10 +420,11 @@ class AutomationEngine {
                   // --- DEBUG SNAPSHOT ---
                   try {
                       const fs = await import('fs');
+                      console.log('Snapshot page URL:', page.url());
+                      console.log('Snapshot page title:', await page.title());
                       const html = await cdpEvaluate(page, `document.documentElement.outerHTML`);
                       fs.writeFileSync('debug_snapshot.html', html);
                       console.log('Snapshot saved to debug_snapshot.html');
-                      console.log('Current page URL:', page.url());
                   } catch (e: any) {
                       console.error('Failed to save debug snapshot:', e.message);
                   }
