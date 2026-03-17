@@ -311,7 +311,10 @@ class AutomationEngine {
                   
                   // Wait for LinkedIn to finish rendering the React/Ember app
                   try {
-                      const rootCheck = `document.querySelector('#w-react-root > *') !== null`;
+                      const rootCheck = `(function() {
+                          const root = document.querySelector('#w-react-root');
+                          return root && root.children.length > 0;
+                      })()`;
                       const startTime = Date.now();
                       let ready = false;
                       while (Date.now() - startTime < 15000) {
@@ -319,9 +322,13 @@ class AutomationEngine {
                               ready = true;
                               break;
                           }
-                          await new Promise(r => setTimeout(r, 1000));
+                          await new Promise(r => setTimeout(r, 500));
                       }
-                      if (!ready) console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
+                      if (ready) {
+                          console.log('Page fully rendered, proceeding...');
+                      } else {
+                          console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
+                      }
                   } catch (e) {
                       console.warn("Error checking for #w-react-root, proceeding anyway...");
                   }
