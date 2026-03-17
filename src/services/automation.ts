@@ -439,18 +439,17 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // NEW SIMPLIFIED CDP CLICK FOR ADD A NOTE
-                  const client = await page.target().createCDPSession();
+                  // OS-LEVEL PHYSICAL MOUSE CLICK (User Requested)
                   await new Promise(r => setTimeout(r, 2000));
                   try {
-                      await client.send('Runtime.evaluate', {
-                          expression: `document.querySelector('button[aria-label="Add a note"]').click()`,
-                          // @ts-ignore
-                          bypassCSP: true
-                      });
-                      console.log('Add a note clicked via CDP!');
+                      const { exec } = await import('child_process');
+                      const x = 755;
+                      const y = 237;
+                      const cmd = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);"`;
+                      exec(cmd);
+                      console.log(`Physical OS-level mouse click executed at x=${x}, y=${y}`);
                   } catch (err: any) {
-                      console.warn('Direct CDP click for "Add a note" failed:', err.message);
+                      console.warn('Physical mouse click failed:', err.message);
                   }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
