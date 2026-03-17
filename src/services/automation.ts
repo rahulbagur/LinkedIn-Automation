@@ -438,7 +438,20 @@ class AutomationEngine {
 
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
-                  await humanDelay(4000, 6000);
+                  
+                  // NEW SIMPLIFIED CDP CLICK FOR ADD A NOTE
+                  const client = await page.target().createCDPSession();
+                  await new Promise(r => setTimeout(r, 2000));
+                  try {
+                      await client.send('Runtime.evaluate', {
+                          expression: `document.querySelector('button[aria-label="Add a note"]').click()`,
+                          // @ts-ignore
+                          bypassCSP: true
+                      });
+                      console.log('Add a note clicked via CDP!');
+                  } catch (err: any) {
+                      console.warn('Direct CDP click for "Add a note" failed:', err.message);
+                  }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
                   const otherXPath = "//button[contains(., 'Other')]";
@@ -456,86 +469,59 @@ class AutomationEngine {
                       await humanDelay(4500, 6000); 
                   }
 
-                  // 3. Add Note
+                  // 3. Type Note
                   const personalizedMessage = lead.message ? replacePlaceholders(lead.message, lead) : null;
                   let noteAdded = false;
                   if (personalizedMessage) {
-                      console.log("Attempting to add a note...");
+                      console.log("Attempting to type the note...");
                       
-                      // Refresh tab for note step
-                      const activePage = await syncTab() || page;
-                      const client = await activePage.target().createCDPSession();
-
-                      // Wait for button using CDP polling (Fix from User)
-                      let addNoteFound = false;
-                      for (let i = 0; i < 20; i++) {
-                        const result = await client.send('Runtime.evaluate', {
-                          expression: `!!document.querySelector('button[aria-label="Add a note"]')`,
-                          // @ts-ignore
-                          bypassCSP: true
-                        });
-                        if (result.result.value === true) { addNoteFound = true; break; }
-                        await new Promise(r => setTimeout(r, 500));
-                      }
-
-                      if (addNoteFound) {
-                        await client.send('Runtime.evaluate', {
-                          expression: `document.querySelector('button[aria-label="Add a note"]').click()`,
-                          // @ts-ignore
-                          bypassCSP: true
-                        });
-                        console.log('Add a note clicked via CDP!');
-                        
-                        await humanDelay(2000, 3000);
-                        
-                        // Finalize typing into message box
-                        let typed = false;
-                        for (const boxXPath of SELECTORS.MESSAGE_BOX) {
-                            try {
-                                const startTime = Date.now();
-                                let boxReady = false;
-                                while (Date.now() - startTime < 4000) {
-                                    if (await cdpEvaluate(activePage, `document.evaluate("${boxXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
-                                        boxReady = true;
-                                        break;
-                                    }
-                                    await new Promise(r => setTimeout(r, 500));
-                                }
-
-                                if (boxReady) {
-                                    const boxHandle = await activePage.$(`xpath/${boxXPath}`);
-                                    if (boxHandle) {
-                                        await boxHandle.focus();
-                                        await boxHandle.click();
-                                        await activePage.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
-                                        typed = true;
-                                        break;
-                                    }
-                                }
-                            } catch (e) {
-                                continue;
-                            }
-                        }
-
-                        if (!typed) {
-                           await cdpEvaluate(activePage, `
-                              (function() {
-                                  const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
-                                  if (box) {
-                                    box.innerHTML = "${personalizedMessage}";
-                                    box.value = "${personalizedMessage}";
-                                    box.dispatchEvent(new Event('input', { bubbles: true }));
-                                    box.dispatchEvent(new Event('change', { bubbles: true }));
+                      // Finalize typing into message box
+                      let typed = false;
+                      for (const boxXPath of SELECTORS.MESSAGE_BOX) {
+                          try {
+                              const startTime = Date.now();
+                              let boxReady = false;
+                              while (Date.now() - startTime < 4000) {
+                                  if (await cdpEvaluate(page, `document.evaluate("${boxXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
+                                      boxReady = true;
+                                      break;
                                   }
-                              })()
-                           `);
-                        }
+                                  await new Promise(r => setTimeout(r, 500));
+                              }
 
-                        await humanDelay(3000, 4000);
-                        noteAdded = true;
+                              if (boxReady) {
+                                  const boxHandle = await page.$(`xpath/${boxXPath}`);
+                                  if (boxHandle) {
+                                      await boxHandle.focus();
+                                      await boxHandle.click();
+                                      await page.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
+                                      typed = true;
+                                      break;
+                                  }
+                              }
+                          } catch (e) {
+                              continue;
+                          }
                       }
-                      await client.detach();
+
+                      if (!typed) {
+                         await cdpEvaluate(page, `
+                            (function() {
+                                const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
+                                if (box) {
+                                  box.innerHTML = "${personalizedMessage}";
+                                  box.value = "${personalizedMessage}";
+                                  box.dispatchEvent(new Event('input', { bubbles: true }));
+                                  box.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            })()
+                         `);
+                      }
+
+                      await humanDelay(3000, 4000);
+                      noteAdded = true;
                   }
+                  await client.detach();
 
                   // 4. Final Send
                   const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
