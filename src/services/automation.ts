@@ -31,7 +31,7 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
         await humanDelay(300, 600); // Wait for UI/Modal stability
 
         // Attempt Ember-compatible event dispatching
-        const success = await page.evaluate((el: any) => {
+        const success = await handle.evaluate((el: any) => {
           if (!el) return false;
           
           // Ember.js often requires focus before event dispatching
@@ -43,7 +43,7 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
           el.dispatchEvent(new MouseEvent('mouseup', opts));
           el.dispatchEvent(new MouseEvent('click', opts));
           return true;
-        }, handle);
+        });
         
         if (success) {
           console.log(`Ember-compatible click sequence dispatched for: ${selector}`);
