@@ -419,9 +419,14 @@ class AutomationEngine {
 
                   // --- DEBUG SNAPSHOT ---
                   try {
+                      console.log('Waiting 3s for modal to mount before snapshot...');
+                      await new Promise(resolve => setTimeout(resolve, 3000));
+                      
                       const fs = await import('fs');
-                      console.log('Snapshot page URL:', page.url());
+                      const currentUrl = page.url();
+                      console.log('Snapshot page URL:', currentUrl);
                       console.log('Snapshot page title:', await page.title());
+                      
                       const html = await cdpEvaluate(page, `document.documentElement.outerHTML`);
                       fs.writeFileSync('debug_snapshot.html', html);
                       console.log('Snapshot saved to debug_snapshot.html');
