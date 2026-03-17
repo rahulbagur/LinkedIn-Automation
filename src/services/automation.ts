@@ -240,9 +240,30 @@ class AutomationEngine {
         Logs.add(null, 'START', 'INFO', 'Started in Simulation Mode');
       }
 
+      // --- TAB SYNC LAYER ---
+      const syncTab = async () => {
+          const allPages = await this.browser!.pages();
+          console.log('--- Current Open Tabs ---');
+          allPages.forEach((p, i) => console.log(`Tab ${i}: ${p.url()}`));
+          console.log('-------------------------');
+          
+          // Explicitly find the LinkedIn tab and bring to front
+          const active = allPages.find(p => p.url().includes('linkedin.com'));
+          if (!active) {
+              throw new Error('LinkedIn tab not found (Ensure it is open in Brave)');
+          }
+          
+          await active.bringToFront();
+          await active.setBypassCSP(true);
+          console.log('Using page:', active.url());
+          return active;
+      };
+
       // Keep running as long as isRunning is true
       while (this.isRunning) {
-        const hasMore = await this.processQueue(page, settings, isSimulation);
+        // Refresh page reference from current browser state
+        page = await syncTab();
+        const hasMore = await this.processQueue(page, settings, isSimulation, syncTab);
         
         if (!hasMore) {
           console.log('No more leads to process. Waiting 60 seconds...');
@@ -271,7 +292,7 @@ class AutomationEngine {
     return this.isRunning;
   }
 
-  private async processQueue(page: Page | null, settings: Record<string, string>, isSimulation: boolean) {
+  private async processQueue(page: Page | null, settings: Record<string, string>, isSimulation: boolean, syncTab: () => Promise<Page | null>) {
     const dailyLimit = parseInt(settings.daily_connect_limit || '20');
     const leads = Leads.getPendingActions(dailyLimit);
 
@@ -296,6 +317,8 @@ class AutomationEngine {
           }
         } else {
           // --- REAL BROWSER MODE ---
+          // Always refresh tab before navigation
+          page = await syncTab();
           if (!page) throw new Error("Browser page not initialized");
 
           // 1. Navigate with Retry
@@ -417,6 +440,9 @@ class AutomationEngine {
                   console.log("Connect button clicked. Waiting for page to stabilize...");
                   await humanDelay(6000, 8000); // Increased by 2s
 
+                  // Refresh tab reference before snapshot to ensure we are looking at the right one
+                  page = await syncTab() || page;
+
                   // --- DEBUG SNAPSHOT ---
                   try {
                       console.log('Waiting 3s for modal to mount before snapshot...');
@@ -507,9 +533,8 @@ class AutomationEngine {
                   if (personalizedMessage) {
                       console.log("Attempting to add a note...");
                       
-                      // Ensure we are using the most active LinkedIn page reference
-                      const allPages = await page.browser().pages();
-                      const activePage = allPages.find(p => p.url().includes('linkedin.com')) || page;
+                      // Refresh tab for note step
+                      const activePage = await syncTab() || page;
 
                       let addNoteClicked = false;
                       
