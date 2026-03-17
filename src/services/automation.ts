@@ -259,7 +259,14 @@ class AutomationEngine {
                     timeout: 60000
                   });
                   
-                  await humanDelay(5000, 10000);
+                  // Wait for LinkedIn to finish rendering the React/Ember app
+                  try {
+                      await page.waitForSelector('#w-react-root > *', { timeout: 15000 });
+                  } catch (e) {
+                      console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
+                  }
+                  
+                  await humanDelay(7000, 12000); // Increased by 2s
                   await simulateScroll(page);
                   
                   const title = await page.title();
@@ -273,14 +280,14 @@ class AutomationEngine {
                   break;
               } catch (e: any) {
                   console.warn(`Navigation attempt ${i+1} failed: ${e.message}`);
-                  await humanDelay(5000, 10000);
+                  await humanDelay(7000, 12000); // Increased by 2s
               }
           }
 
           if (!navigationSuccess) throw new Error("Navigation failed after multiple attempts");
 
           await humanMoveMouse(page);
-          await humanDelay(2000, 4000);
+          await humanDelay(4000, 6000); // Increased by 2s
 
           // --- ROBUSTNESS LAYER: Close any blocking chat windows ---
           await page.evaluate(() => {
@@ -330,14 +337,14 @@ class AutomationEngine {
                   console.log("Connect button not found in main bar, trying 'More' menu...");
                   const moreClicked = await forceClick(page, SELECTORS.MORE_BUTTONS);
                   if (moreClicked) {
-                      await humanDelay(1500, 2500);
+                      await humanDelay(3500, 4500); // Increased by 2s
                       clicked = await forceClick(page, SELECTORS.DROPDOWN_CONNECT);
                   }
               }
 
               if (clicked) {
                   console.log("Connect button clicked. Waiting for page to stabilize...");
-                  await humanDelay(4000, 6000);
+                  await humanDelay(6000, 8000); // Increased by 2s
 
                   // --- DEBUG SNAPSHOT ---
                   try {
@@ -358,27 +365,27 @@ class AutomationEngine {
                   
                   try {
                       console.log("Waiting for send-invite-modal...");
-                      modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 8000 });
+                      modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 10000 }); // Increased by 2s
                   } catch (e) {
                       console.log("Send-invite-modal not found, checking for generic modal...");
                       try {
-                          modalHandle = await page.waitForSelector(genericModalSelector, { timeout: 2000 });
+                          modalHandle = await page.waitForSelector(genericModalSelector, { timeout: 4000 }); // Increased by 2s
                       } catch (err) {
                           console.log("No explicit modal detected. Proceeding to scan page for 'Add a note' buttons...");
                       }
                   }
 
                   if (modalHandle) {
-                      console.log("Modal detected, stabilizing for 300ms...");
-                      await humanDelay(300, 400);
+                      console.log("Modal detected, stabilizing for 2.3s...");
+                      await humanDelay(2300, 2400); // Increased by 2s
                   }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
                   const otherXPath = "//button[contains(., 'Other')]";
-                  const otherClicked = await forceClick(page, otherXPath, 2000);
+                  const otherClicked = await forceClick(page, otherXPath, 4000); // Increased by 2s
                   if (otherClicked) {
                       console.log("Handling 'How do you know' modal...");
-                      await humanDelay(1500, 2500);
+                      await humanDelay(3500, 4500); // Increased by 2s
                       // Sometimes it's 'Next', sometimes it's 'Connect'
                       const nextStepXPaths = [
                         "//button[contains(., 'Connect') and not(contains(., 'Other'))]",
@@ -386,12 +393,12 @@ class AutomationEngine {
                         "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Connect')]",
                         "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Next')]"
                       ];
-                      await forceClick(page, nextStepXPaths, 2500);
-                      await humanDelay(2500, 4000);
+                      await forceClick(page, nextStepXPaths, 4500); // Increased by 2s
+                      await humanDelay(4500, 6000); // Increased by 2s
                       
                       // Re-check for modal after 'Other' flow
                       try {
-                          modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 4000 });
+                          modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 6000 }); // Increased by 2s
                       } catch (e) {}
                   }
 
@@ -410,7 +417,7 @@ class AutomationEngine {
                       // Strategy A: Coordinate-based Mouse Click (Real Mouse Simulation)
                       try {
                           console.log("Searching for 'Add a note' button for coordinate-based click...");
-                          const addNoteBtn = await activePage.waitForSelector('[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]', { visible: true, timeout: 5000 });
+                          const addNoteBtn = await activePage.waitForSelector('[data-test-modal-id="send-invite-modal"] button[aria-label="Add a note"]', { visible: true, timeout: 7000 }); // Increased by 2s
                           if (addNoteBtn) {
                               const box = await addNoteBtn.boundingBox();
                               if (box) {
@@ -441,7 +448,7 @@ class AutomationEngine {
                           let typed = false;
                           for (const boxXPath of SELECTORS.MESSAGE_BOX) {
                               try {
-                                  const boxHandle = await activePage.waitForSelector(`xpath/${boxXPath}`, { timeout: 2000 });
+                                  const boxHandle = await activePage.waitForSelector(`xpath/${boxXPath}`, { timeout: 4000 }); // Increased by 2s
                                   if (boxHandle) {
                                       await boxHandle.focus();
                                       await boxHandle.click();
@@ -467,7 +474,7 @@ class AutomationEngine {
                              }, personalizedMessage);
                           }
                           
-                          await humanDelay(1000, 2000);
+                          await humanDelay(3000, 4000); // Increased by 2s
                           noteAdded = true;
                       }
                   }
@@ -476,7 +483,7 @@ class AutomationEngine {
                   const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
 
                   if (sendClicked) {
-                      await humanDelay(3000, 5000);
+                      await humanDelay(5000, 7000); // Increased by 2s
                       console.log(`Connection request sent ${noteAdded ? 'with' : 'without'} note!`);
                       Leads.updateStatus(lead.id, 'CONNECT_SENT');
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
@@ -506,25 +513,25 @@ class AutomationEngine {
               console.log("Initiating message flow...");
               const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
               try {
-                  const messageHandle = await page.waitForSelector(`xpath/${messageXPath}`, { timeout: 5000 });
+                  const messageHandle = await page.waitForSelector(`xpath/${messageXPath}`, { timeout: 7000 }); // Increased by 2s
                   if (messageHandle) {
                       // DOM-level click for message button
                       await messageHandle.evaluate((btn: any) => (btn as HTMLElement).click());
-                      await humanDelay(3000, 5000);
+                      await humanDelay(5000, 7000); // Increased by 2s
                       
                       const msgText = lead.message ? replacePlaceholders(lead.message, lead) : "Hi " + lead.first_name;
                       
                       // Focus and type into the editor
-                      await page.waitForSelector('.msg-form__contenteditable', { timeout: 5000 });
+                      await page.waitForSelector('.msg-form__contenteditable', { timeout: 7000 }); // Increased by 2s
                       await page.click('.msg-form__contenteditable');
                       await page.type('.msg-form__contenteditable', msgText, { delay: 80 });
-                      await humanDelay(1500, 2500);
+                      await humanDelay(3500, 4500); // Increased by 2s
 
-                      const sendMsgBtn = await page.waitForSelector('button.msg-form__send-button', { timeout: 5000 });
+                      const sendMsgBtn = await page.waitForSelector('button.msg-form__send-button', { timeout: 7000 }); // Increased by 2s
                       if (sendMsgBtn) {
                           // DOM-level click for send button
                           await sendMsgBtn.evaluate((btn: any) => (btn as HTMLElement).click());
-                          await humanDelay(2000, 4000);
+                          await humanDelay(4000, 6000); // Increased by 2s
                           console.log("Message sent!");
                           Leads.updateStatus(lead.id, 'MSG_SENT');
                           Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent to connection');
