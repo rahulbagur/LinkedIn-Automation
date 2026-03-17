@@ -1,0 +1,212 @@
+Server running on http://localhost:3000
+[API] Resetting all leads to NEW status
+[API] Attempting bulk delete for 3 leads
+[API] Calling Leads.delete for ID: e8e595d0-2b4a-4397-99e8-e6cdde740d9e
+[DB] Deleting logs for lead e8e595d0-2b4a-4397-99e8-e6cdde740d9e
+[DB] Deleted 3 logs
+[DB] Deleting lead e8e595d0-2b4a-4397-99e8-e6cdde740d9e
+[DB] Deleted 1 lead records
+[API] Calling Leads.delete for ID: be06c04c-5649-46ef-b1c7-818edafe0cfd
+[DB] Deleting logs for lead be06c04c-5649-46ef-b1c7-818edafe0cfd
+[DB] Deleted 3 logs
+[DB] Deleting lead be06c04c-5649-46ef-b1c7-818edafe0cfd
+[DB] Deleted 1 lead records
+[API] Calling Leads.delete for ID: 75279e2e-11d6-4e79-b9c5-c320bd91a8a3
+[DB] Deleting logs for lead 75279e2e-11d6-4e79-b9c5-c320bd91a8a3
+[DB] Deleted 3 logs
+[DB] Deleting lead 75279e2e-11d6-4e79-b9c5-c320bd91a8a3
+[DB] Deleted 1 lead records
+[API] Successfully bulk deleted 3 leads
+Starting automation engine...
+Using persistent profile at: C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\linkedin_profile
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Preferences
+7:57:29 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db-wal
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Sync Data/LevelDB/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Service Worker/Database/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/ClientCertificates/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Site Characteristics Database/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/parcel_tracking_db/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/discount_infos_db/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/chrome_cart_db/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/commerce_subscription_db/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/discounts_db/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SegmentInfoDB/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/power_bookmarks/PowerBookmarks.db-journal
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/PersistentOriginTrials/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SignalDB/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Variations
+7:57:29 pm [vite] (client) page reload linkedin_profile/Last Version
+7:57:29 pm [vite] (client) page reload linkedin_profile/DevToolsActivePort
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/shared_proto_db/metadata/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SignalStorageConfigDB/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Local Storage/leveldb/LOG
+7:57:29 pm [vite] (client) page reload linkedin_profile/BrowserMetrics-spare.pma
+7:57:29 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418132670654245
+7:57:29 pm [vite] (client) page reload linkedin_profile/CertificateRevocation/10406/crl-set
+7:57:29 pm [vite] (client) page reload linkedin_profile/CertificateRevocation/10406/LICENSE
+7:57:29 pm [vite] (client) page reload linkedin_profile/CertificateRevocation/10406/manifest.json
+7:57:29 pm [vite] (client) page reload linkedin_profile/CertificateRevocation/10406/_metadata/verified_contents.json
+7:57:30 pm [vite] (client) page reload linkedin_profile/GPUPersistentCache/DawnGraphiteCache/HCCNJFH32V7OE6ARKPLQ7CMF7IDIJLI4/cache.journal
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Cache/No_Vary_Search/journal.baj
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Sync Data/LevelDB/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Sync Data/LevelDB/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Service Worker/Database/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Service Worker/Database/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/ClientCertificates/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/ClientCertificates/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Site Characteristics Database/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Site Characteristics Database/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/parcel_tracking_db/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/parcel_tracking_db/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/discount_infos_db/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/discount_infos_db/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/chrome_cart_db/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/chrome_cart_db/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/commerce_subscription_db/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/commerce_subscription_db/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/discounts_db/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/discounts_db/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SegmentInfoDB/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SegmentInfoDB/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/power_bookmarks/PowerBookmarks.db-journal
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/PersistentOriginTrials/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/PersistentOriginTrials/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SignalDB/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SignalDB/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/shared_proto_db/metadata/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/shared_proto_db/metadata/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/shared_proto_db/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/shared_proto_db/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Segmentation Platform/SignalStorageConfigDB/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Local Storage/leveldb/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Local Storage/leveldb/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Network/SCT Auditing Pending Reports
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Session Storage/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Cache/No_Vary_Search/journal.baj
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Session Storage/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Extension State/LOG
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Tabs_13418132670883502
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/Extension State/LOG.old
+7:57:30 pm [vite] (client) page reload linkedin_profile/Default/trusted_vault.pb
+7:57:30 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db-wal
+7:57:30 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db
+Navigating to LinkedIn to verify session...
+7:57:31 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2eeeu96=8216=u0@;`2.journal
+7:57:31 pm [vite] (client) page reload linkedin_profile/Default/IndexedDB/https_www.linkedin.com_0.indexeddb.leveldb/LOG.old
+7:57:31 pm [vite] (client) page reload linkedin_profile/Default/IndexedDB/https_www.linkedin.com_0.indexeddb.leveldb/LOG
+7:57:32 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db-wal
+7:57:32 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db
+7:57:32 pm [vite] (client) page reload linkedin_profile/Default/History-journal
+7:57:32 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db-wal
+7:57:32 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db
+7:57:34 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2eeeu96=8216=u0@;`2.journal
+7:57:34 pm [vite] (client) page reload linkedin_profile/Default/Web Data-journal
+7:57:34 pm [vite] (client) page reload linkedin_profile/Default/Web Data
+7:57:35 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:57:35 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Tabs_13418144852463903
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/GCM Store/LOG
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/GCM Store/LOG.old
+7:57:38 pm [vite] (client) page reload linkedin_profile/Last Browser
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/BookmarkMergedSurfaceOrdering
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/AutofillAiModelCache/LOG
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/AutofillStrikeDatabase/LOG
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/AutofillAiModelCache/LOG.old
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/BudgetDatabase/LOG
+7:57:38 pm [vite] (client) page reload linkedin_profile/first_party_sets.db-journal
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/AutofillStrikeDatabase/LOG.old
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/BudgetDatabase/LOG.old
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/Feature Engagement Tracker/AvailabilityDB/LOG
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/Feature Engagement Tracker/EventDB/LOG
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/Feature Engagement Tracker/AvailabilityDB/LOG.old
+7:57:38 pm [vite] (client) page reload linkedin_profile/Default/Feature Engagement Tracker/EventDB/LOG.old
+7:57:38 pm [vite] (client) page reload linkedin_profile/BrowserMetrics/BrowserMetrics-69B80831-5CC0.pma
+7:57:39 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:57:39 pm [vite] (client) page reload linkedin_profile/Local State
+7:57:39 pm [vite] (client) page reload linkedin_profile/Default/Secure Preferences
+7:57:39 pm [vite] (client) page reload linkedin_profile/Default/Preferences
+7:57:40 pm [vite] (client) page reload linkedin_profile/Default/Network/Network Persistent State
+7:57:41 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2[_@b205bau=2b`2.journal
+7:57:41 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2[_@b205bau=2b`2.journal (x2)
+7:57:41 pm [vite] (client) page reload linkedin_profile/Default/Cache/Cache_Data/sqldb2
+7:57:41 pm [vite] (client) page reload linkedin_profile/Default/History-journal
+7:57:41 pm [vite] (client) page reload linkedin_profile/Default/History
+7:57:42 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2eeeu96=8216=u0@;`2.journal
+7:57:43 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL-journal
+7:57:43 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL
+Session verified. Already logged in.
+7:57:44 pm [vite] (client) page reload linkedin_profile/Default/DIPS-wal
+7:57:44 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+Processing lead: Ambika null (Status: NEW)
+Navigating to https://www.linkedin.com/in/ambika-bamezai-a5187197 (Attempt 1)
+7:57:48 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db-wal
+7:57:48 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db
+7:57:49 pm [vite] (client) page reload linkedin_profile/Default/History-journal
+7:57:50 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2[_@b205bau=2b`2.journal
+7:57:51 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2eeeu96=8216=u0@;`2.journal
+7:57:51 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:57:52 pm [vite] (client) page reload linkedin_profile/Default/Preferences
+7:57:53 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:57:55 pm [vite] (client) page reload linkedin_profile/Default/Cache/Cache_Data/sqldb0
+7:57:55 pm [vite] (client) page reload linkedin_profile/Default/Cache/Cache_Data/sqldb1
+7:57:55 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:57:57 pm [vite] (client) page reload linkedin_profile/Default/History-journal
+7:57:57 pm [vite] (client) page reload linkedin_profile/Default/History
+7:57:59 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager-journal
+7:57:59 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager
+7:57:59 pm [vite] (client) page reload linkedin_profile/Default/Network/Cookies-journal
+7:57:59 pm [vite] (client) page reload linkedin_profile/Default/Network/Cookies
+7:58:00 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL-journal
+7:58:00 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL
+7:58:00 pm [vite] (client) page reload linkedin_profile/Default/DIPS-wal
+7:58:00 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:58:00 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2=aw[u=2b`2.journal
+7:58:00 pm [vite] (client) page reload linkedin_profile/Default/Code Cache/pc/5bb[a`6`2`2=aw[u=2b`2.journal (x2)
+7:58:02 pm [vite] (client) page reload linkedin_profile/Default/Preferences
+Initiating connection request...
+Failed to process lead 48f0f7f2-e512-41ec-b974-655df4b5451b: Error [ReferenceError]: __name is not defined
+    at evaluate (evaluate at AutomationEngine.processQueue (file:///C:/Users/Bagur/Desktop/Class/Projects/Rahul/Software%20Development/LinkedIn-Automation-main/src/services/automation.ts:1:7676), <anonymous>:0:30)
+    at ExecutionContext.#evaluate (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\node_modules\puppeteer-core\src\cdp\ExecutionContext.ts:456:34)
+    at async ExecutionContext.evaluate (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\node_modules\puppeteer-core\src\cdp\ExecutionContext.ts:293:12)
+    at async IsolatedWorld.evaluate (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\node_modules\puppeteer-core\src\cdp\IsolatedWorld.ts:196:12)
+    at async CdpFrame.evaluate (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\node_modules\puppeteer-core\src\api\Frame.ts:488:12)
+    at async CdpPage.evaluate (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\node_modules\puppeteer-core\src\api\Page.ts:2362:12)
+    at async AutomationEngine.processQueue (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\src\services\automation.ts:300:37)
+    at async AutomationEngine.start (C:\Users\Bagur\Desktop\Class\Projects\Rahul\Software Development\LinkedIn-Automation-main\src\services\automation.ts:166:25)
+No more leads to process. Waiting 60 seconds...
+7:58:13 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL-journal
+7:58:13 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL
+7:58:14 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:58:18 pm [vite] (client) page reload linkedin_profile/Default/Network Action Predictor-journal
+7:58:18 pm [vite] (client) page reload linkedin_profile/Default/Network Action Predictor
+7:58:19 pm [vite] (client) page reload linkedin_profile/Default/Network Action Predictor-journal
+7:58:19 pm [vite] (client) page reload linkedin_profile/Default/Network Action Predictor
+7:58:29 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager
+7:58:30 pm [vite] (client) page reload linkedin_profile/Default/History-journal
+7:58:30 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager-journal
+7:58:31 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL-journal
+7:58:31 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL
+7:58:39 pm [vite] (client) page reload linkedin_profile/Default/Preferences
+7:58:39 pm [vite] (client) page reload linkedin_profile/Default/Network/Network Persistent State
+7:58:40 pm [vite] (client) page reload linkedin_profile/Local State
+7:58:59 pm [vite] (client) page reload linkedin_profile/BrowserMetrics-spare.pma
+7:59:00 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager-journal
+7:59:00 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager
+7:59:01 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL-journal
+7:59:01 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL
+7:59:02 pm [vite] (client) page reload linkedin_profile/Default/Network/Cookies-journal
+7:59:02 pm [vite] (client) page reload linkedin_profile/Default/Network/Cookies
+No more leads to process. Waiting 60 seconds...
+7:59:12 pm [vite] (client) page reload linkedin_profile/Default/Preferences
+7:59:13 pm [vite] (client) page reload linkedin_profile/Default/Sessions/Session_13418144852221964
+7:59:29 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db-wal
+7:59:29 pm [vite] (client) page reload linkedin_profile/segmentation_platform/ukm_db
+7:59:30 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager-journal
+7:59:30 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager
+7:59:32 pm [vite] (client) page reload linkedin_profile/Default/Network/Cookies-journal
+7:59:32 pm [vite] (client) page reload linkedin_profile/Default/Network/Cookies
+7:59:32 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL-journal
+7:59:32 pm [vite] (client) page reload linkedin_profile/Default/Network/Reporting and NEL
+7:59:33 pm [vite] (client) page reload linkedin_profile/Default/WebStorage/QuotaManager-journal
