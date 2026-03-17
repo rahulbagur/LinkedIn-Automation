@@ -339,6 +339,17 @@ class AutomationEngine {
                   console.log("Connect button clicked. Waiting for page to stabilize...");
                   await humanDelay(4000, 6000);
 
+                  // --- DEBUG SNAPSHOT ---
+                  try {
+                      const fs = await import('fs');
+                      const html = await page.content();
+                      fs.writeFileSync('debug_snapshot.html', html);
+                      console.log('Snapshot saved to debug_snapshot.html');
+                      console.log('Current page URL:', page.url());
+                  } catch (e: any) {
+                      console.error('Failed to save debug snapshot:', e.message);
+                  }
+
                   // --- MODAL HANDLING LAYER ---
                   // Increased patience for modal detection
                   const sendInviteModalSelector = '[data-test-modal-id="send-invite-modal"]';
