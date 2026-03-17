@@ -14,23 +14,30 @@ const humanDelay = (min: number, max: number) => {
 };
 
 /**
- * DOM-level clicker with Puppeteer native fallback and React-compatible event dispatching.
+ * DOM-level clicker with Puppeteer native fallback and Ember/React-compatible event dispatching.
  */
-const forceClick = async (page: Page, xpaths: string | string[], timeout = 3000) => {
-  const xpathArray = Array.isArray(xpaths) ? xpaths : [xpaths];
+const forceClick = async (page: Page, selectors: string | string[], timeout = 3000) => {
+  const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
   
-  for (const xpath of xpathArray) {
+  for (const selector of selectorArray) {
     try {
-      const handle = await page.waitForSelector(`xpath/${xpath}`, { timeout });
+      // Auto-detect XPath vs CSS
+      const isXPath = selector.startsWith('/') || selector.startsWith('(');
+      const fullSelector = isXPath ? `xpath/${selector}` : selector;
+      
+      const handle = await page.waitForSelector(fullSelector, { timeout });
       if (handle) {
         await handle.scrollIntoView();
-        await humanDelay(500, 1000); // Wait for modal/UI stability
+        await humanDelay(300, 600); // Wait for UI/Modal stability
 
-        // Attempt React-compatible event dispatching
+        // Attempt Ember-compatible event dispatching
         const success = await page.evaluate((el: any) => {
           if (!el) return false;
           
-          // Dispatch sequence for React/Modern UI compatibility
+          // Ember.js often requires focus before event dispatching
+          if (typeof el.focus === 'function') el.focus();
+          
+          // Dispatch sequence for Modern UI compatibility
           const opts = { bubbles: true, cancelable: true, view: window };
           el.dispatchEvent(new MouseEvent('mousedown', opts));
           el.dispatchEvent(new MouseEvent('mouseup', opts));
@@ -39,7 +46,7 @@ const forceClick = async (page: Page, xpaths: string | string[], timeout = 3000)
         }, handle);
         
         if (success) {
-          console.log(`React-compatible click sequence dispatched for: ${xpath}`);
+          console.log(`Ember-compatible click sequence dispatched for: ${selector}`);
           return true;
         }
       }
@@ -54,6 +61,7 @@ const forceClick = async (page: Page, xpaths: string | string[], timeout = 3000)
 
 const SELECTORS = {
   CONNECT_BUTTONS: [
+    "button[aria-label^='Connect']", // CSS Primary
     "//button[@aria-label='Connect' or contains(@aria-label, 'Connect with')]",
     "//a[@aria-label='Connect' or contains(@aria-label, 'Connect with')]",
     "//*[@id='workspace']//a[contains(., 'Connect') or contains(@aria-label, 'Connect')]",
@@ -64,23 +72,29 @@ const SELECTORS = {
     "//a[.//span[text()='Connect']]"
   ],
   MORE_BUTTONS: [
+    "button[aria-label='More actions']",
+    "button[aria-label='More']",
     "//button[@aria-label='More actions' or @aria-label='More']",
     "//button[contains(@class, 'pvs-profile-actions__action')]//span[text()='More']/..",
     "//button[contains(@class, 'artdeco-button--secondary') and (contains(., 'More') or contains(@aria-label, 'More actions'))]"
   ],
   DROPDOWN_CONNECT: [
+    "div[role='button'][aria-label^='Connect']",
     "//div[@role='button' and (@aria-label='Connect' or contains(@aria-label, 'Connect'))]",
     "//div[@role='button']//span[text()='Connect']/..",
     "//li//div[contains(., 'Connect')]",
     "//span[text()='Connect']"
   ],
   SEND_INVITE: [
+    "button[aria-label='Send now']",
+    "button[aria-label='Send invitation']",
     "//button[@aria-label='Send now' or @aria-label='Send invitation']",
     "//button[contains(@class, 'artdeco-button--primary') and (contains(., 'Send') or contains(., 'Done'))]",
     "//div[contains(@class, 'artdeco-modal')]//button[contains(., 'Send')]",
     "//button[contains(., 'Send') and not(contains(., 'note'))]"
   ],
   ADD_NOTE: [
+    "button[aria-label='Add a note']", // Static CSS - Highly reliable for Ember
     "//button[@aria-label='Add a note']",
     "//button[contains(., 'Add a note')]",
     "//button[contains(., 'Add Note')]",
@@ -91,6 +105,8 @@ const SELECTORS = {
     "//button[.//span[text()='Add note']]"
   ],
   MESSAGE_BOX: [
+    "textarea[name='message']",
+    "textarea#custom-message",
     "//textarea[@name='message' or @id='custom-message']",
     "//*[@role='textbox' or @aria-multiline='true']",
     "//div[contains(@class, 'msg-form__contenteditable')]",
