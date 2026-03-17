@@ -341,16 +341,25 @@ class AutomationEngine {
 
                   // --- MODAL HANDLING LAYER ---
                   // Increased patience for modal detection
-                  const modalSelector = '.artdeco-modal, [role="dialog"], .ip-modal';
-                  let modalDetected = false;
+                  const sendInviteModalSelector = '[data-test-modal-id="send-invite-modal"]';
+                  const genericModalSelector = '.artdeco-modal, [role="dialog"], .ip-modal';
+                  let modalHandle = null;
+                  
                   try {
-                      const modal = await page.waitForSelector(modalSelector, { timeout: 6000 });
-                      if (modal) {
-                        console.log("Modal detected, proceeding...");
-                        modalDetected = true;
-                      }
+                      console.log("Waiting for send-invite-modal...");
+                      modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 8000 });
                   } catch (e) {
-                      console.log("No explicit modal detected after 6s. Proceeding to scan page for 'Add a note' buttons...");
+                      console.log("Send-invite-modal not found, checking for generic modal...");
+                      try {
+                          modalHandle = await page.waitForSelector(genericModalSelector, { timeout: 2000 });
+                      } catch (err) {
+                          console.log("No explicit modal detected. Proceeding to scan page for 'Add a note' buttons...");
+                      }
+                  }
+
+                  if (modalHandle) {
+                      console.log("Modal detected, stabilizing for 300ms...");
+                      await humanDelay(300, 400);
                   }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
@@ -368,24 +377,49 @@ class AutomationEngine {
                       ];
                       await forceClick(page, nextStepXPaths, 2500);
                       await humanDelay(2500, 4000);
+                      
+                      // Re-check for modal after 'Other' flow
+                      try {
+                          modalHandle = await page.waitForSelector(sendInviteModalSelector, { timeout: 4000 });
+                      } catch (e) {}
                   }
 
                   // 3. Add Note
                   const personalizedMessage = lead.message ? replacePlaceholders(lead.message, lead) : null;
                   let noteAdded = false;
                   if (personalizedMessage) {
-                      console.log("Scanning page for 'Add a note' button...");
+                      console.log("Attempting to add a note...");
                       
-                      // Very broad fallback for "Add a note"
-                      const addNoteXPaths = [
-                        ...SELECTORS.ADD_NOTE,
-                        "//button[contains(@aria-label, 'Add a note')]",
-                        "//button[contains(., 'Add a note')]",
-                        "//span[contains(text(), 'Add a note')]/..",
-                        "//a[contains(., 'Add a note')]"
-                      ];
+                      let addNoteClicked = false;
                       
-                      const addNoteClicked = await forceClick(page, addNoteXPaths);
+                      // Strategy A: Scoped Native Click inside confirmed modal
+                      if (modalHandle) {
+                          try {
+                              console.log("Searching for 'Add a note' button inside modal using native selector...");
+                              const addNoteBtn = await modalHandle.$('button[aria-label="Add a note"]');
+                              if (addNoteBtn) {
+                                  await addNoteBtn.scrollIntoView();
+                                  await humanDelay(300, 500);
+                                  await addNoteBtn.click(); // Puppeteer native click (CDP-level)
+                                  console.log("Native click successful for 'Add a note' inside modal.");
+                                  addNoteClicked = true;
+                              }
+                          } catch (e) {
+                              console.warn("Native scoped click failed, falling back to forceClick...");
+                          }
+                      }
+                      
+                      // Strategy B: Fallback to broad forceClick
+                      if (!addNoteClicked) {
+                          const addNoteXPaths = [
+                            ...SELECTORS.ADD_NOTE,
+                            "//button[contains(@aria-label, 'Add a note')]",
+                            "//button[contains(., 'Add a note')]",
+                            "//span[contains(text(), 'Add a note')]/..",
+                            "//a[contains(., 'Add a note')]"
+                          ];
+                          addNoteClicked = await forceClick(page, addNoteXPaths);
+                      }
                       
                       if (addNoteClicked) {
                           console.log("'Add a note' clicked, waiting for text area...");
