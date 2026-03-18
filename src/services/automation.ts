@@ -498,20 +498,28 @@ class AutomationEngine {
                           `.replace(/\s+/g, ' ').trim();
 
                           execSync(`powershell -NoProfile -Command "${psPasteScript}"`);
-                          console.log("Paste command executed. Waiting 2 seconds...");
+                          console.log("Paste command executed. Waiting 500ms before Send click...");
+                          await new Promise(r => setTimeout(r, 500));
+
+                          // OS-LEVEL CLICK (Send Button: x=1060, y=483)
+                          console.log('Executing physical click on Send button (x=1060, y=483)...');
+                          const psSendClickCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(1060, 483); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
+                          execSync(`powershell -NoProfile -Command "${psSendClickCommand}"`);
+                          
+                          console.log("Send button clicked physically. Waiting 2 seconds...");
                           await new Promise(r => setTimeout(r, 2000));
                           noteAdded = true;
                       } catch (err: any) {
-                          console.warn('Physical click/paste failed:', err.message);
+                          console.warn('Physical click/paste/send failed:', err.message);
                       }
                   }
 
-                  // 4. Final Send (Re-enabling for testing as per request "go straight to ... and Send")
-                  const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
+                  // 4. Final Send (CDP fallback for Send click and status tracking)
+                  const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE, 5000);
 
-                  if (sendClicked) {
+                  if (sendClicked || noteAdded) {
                       await humanDelay(5000, 7000);
-                      console.log(`Connection request sent ${noteAdded ? 'with' : 'without'} note!`);
+                      console.log(`Connection request processed ${noteAdded ? 'with' : 'without'} note!`);
                       Leads.updateStatus(lead.id, 'CONNECT_SENT');
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
                   } else {
