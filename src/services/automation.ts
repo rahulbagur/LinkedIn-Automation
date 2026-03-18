@@ -447,19 +447,31 @@ class AutomationEngine {
                   // OS-LEVEL CLICK (User Requested x=787, y=217)
                   await new Promise(r => setTimeout(r, 2000)); 
                   try {
-                      console.log('Executing physical click at 787, 217...');
+                      console.log('Executing physical click at 787, 217 with DPI scaling adjustment...');
                       
-                      // 1. Puppeteer Viewport Click (Matches the screenshot coordinates)
+                      // 1. Puppeteer Viewport Click (Logical Coordinates)
                       await page.mouse.click(787, 217);
                       console.log('Puppeteer viewport click executed at 787, 217');
 
-                      // 2. OS-Level PowerShell Click (Absolute fallback)
-                      // Note: Using PowerShell because robotjs requires C++ build tools which are missing
+                      // 2. OS-Level PowerShell Click (Physical Coordinates with scaling)
                       const x = 787;
                       const y = 217;
-                      const cmd = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);"`;
-                      exec(cmd);
-                      console.log(`OS-level physical click executed via PowerShell at x=${x}, y=${y}`);
+                      const cmd = `powershell -NoProfile -Command "
+                        Add-Type -AssemblyName System.Windows.Forms; 
+                        Add-Type -AssemblyName System.Drawing;
+                        $Graphics = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero); 
+                        $scaling = $Graphics.DpiX / 96;
+                        $scaledX = [Math]::Floor(${x} * $scaling);
+                        $scaledY = [Math]::Floor(${y} * $scaling);
+                        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($scaledX, $scaledY); 
+                        Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
+                        [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
+                        [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
+                        Write-Host \\"Clicked at physical coords: $scaledX, $scaledY (Scaling: $scaling)\\"
+                      "`;
+                      exec(cmd, (error, stdout) => {
+                          if (stdout) console.log(stdout.trim());
+                      });
                   } catch (err: any) {
                       console.warn('Physical click failed:', err.message);
                   }
