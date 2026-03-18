@@ -444,12 +444,12 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL CLICK (User Requested Fixed Coordinates: x=787, y=337)
+                  // OS-LEVEL CLICK (User Requested Fixed Coordinates: x=860, y=337)
                   await new Promise(r => setTimeout(r, 2000)); 
                   try {
-                      console.log('Executing physical click at x=787, y=337 (Adjusted for Browser Chrome)...');
+                      console.log('Executing physical click at x=860, y=337 (Adjusted for Browser Chrome)...');
                       
-                      const physicalX = 787;
+                      const physicalX = 860;
                       const physicalY = 337;
 
                       // Use a robust one-liner PowerShell command
@@ -459,8 +459,8 @@ class AutomationEngine {
                       exec(cmd);
                       
                       // Fallback Puppeteer viewport click (Original logical coords)
-                      await page.mouse.click(787, 217);
-                      console.log('Physical click at 787, 337 executed successfully!');
+                      await page.mouse.click(860, 217);
+                      console.log('Physical click at 860, 337 executed successfully!');
                   } catch (err: any) {
                       console.warn('Physical click failed:', err.message);
                   }
