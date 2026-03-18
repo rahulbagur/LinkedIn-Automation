@@ -445,32 +445,6 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL CLICK (User Requested Fixed Coordinates: x=956, y=337)
-                  await new Promise(r => setTimeout(r, 2000)); 
-                  try {
-                      console.log('Executing physical click at x=956, y=337 (Adjusted for Browser Chrome)...');
-                      
-                      const physicalX = 956;
-                      const physicalY = 337;
-
-                      // Use a robust one-liner PowerShell command
-                      const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
-                      
-                      const cmd = `powershell -NoProfile -Command "${psCommand}"`;
-                      exec(cmd);
-                      
-                      // Wait 2 seconds and click again at the same place
-                      console.log('Waiting 2 seconds before second click...');
-                      await new Promise(r => setTimeout(r, 2000));
-                      exec(cmd);
-
-                      // Fallback Puppeteer viewport click (Original logical coords)
-                      await page.mouse.click(956, 217);
-                      console.log('Double physical click at 956, 337 executed successfully!');
-                  } catch (err: any) {
-                      console.warn('Physical click failed:', err.message);
-                  }
-
                   // 2. Handle "How do you know" modal (Pre-Note Step)
                   const otherXPath = "//button[contains(., 'Other')]";
                   const otherClicked = await forceClick(page, otherXPath, 4000); 
@@ -491,74 +465,42 @@ class AutomationEngine {
                   const personalizedMessage = lead.message ? replacePlaceholders(lead.message, lead) : null;
                   let noteAdded = false;
                   if (personalizedMessage) {
-                      console.log("Attempting to type the note using clipboard directly after physical click...");
+                      console.log("Executing physical click on textarea and pasting...");
                       
-                      // Wait specifically for the modal to settle
-                      await humanDelay(2000, 3000);
+                      try {
+                          const physicalX = 956;
+                          const physicalY = 337;
+                          const psClickCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
+                          
+                          // Click Once
+                          execSync(`powershell -NoProfile -Command "${psClickCommand}"`);
+                          await new Promise(r => setTimeout(r, 1000));
+                          // Click Twice (Double click for focus assurance)
+                          execSync(`powershell -NoProfile -Command "${psClickCommand}"`);
+                          
+                          console.log("Textarea clicked. Pasting message via PowerShell...");
+                          
+                          const psPasteScript = `
+                            Add-Type -AssemblyName System.Windows.Forms;
+                            Set-Clipboard -Value '${personalizedMessage!.replace(/'/g, "''")}';
+                            Start-Sleep -Milliseconds 500;
+                            $brave = (Get-Process | Where-Object {$_.MainWindowTitle -like '*LinkedIn*'} | Select-Object -First 1);
+                            if ($brave) {
+                              $code = '[DllImport(\\"user32.dll\\")] public static extern bool SetForegroundWindow(IntPtr h);';
+                              Add-Type -MemberDefinition $code -Name Win -Namespace Native;
+                              [Native.Win]::SetForegroundWindow($brave.MainWindowHandle);
+                              Start-Sleep -Milliseconds 500;
+                              [System.Windows.Forms.SendKeys]::SendWait('^v');
+                            }
+                          `.replace(/\s+/g, ' ').trim();
 
-                      // Focus and paste
-                      let typed = false;
-                      for (const boxXPath of SELECTORS.MESSAGE_BOX) {
-                          try {
-                              const startTime = Date.now();
-                              let boxReady = false;
-                              while (Date.now() - startTime < 4000) {
-                                  if (await cdpEvaluate(page, `document.evaluate("${boxXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
-                                      boxReady = true;
-                                      break;
-                                  }
-                                  await new Promise(r => setTimeout(r, 500));
-                              }
-
-                              if (boxReady) {
-                                  const boxHandle = await page.$(`xpath/${boxXPath}`);
-                                  if (boxHandle) {
-                                      await boxHandle.focus();
-                                      await boxHandle.click();
-                                      
-                                      console.log("Pasting message via PowerShell (Foreground Focus)...");
-                                      const psPasteScript = `
-                                        Add-Type -AssemblyName System.Windows.Forms;
-                                        Set-Clipboard -Value '${personalizedMessage!.replace(/'/g, "''")}';
-                                        Start-Sleep -Milliseconds 300;
-                                        $brave = (Get-Process | Where-Object {$_.MainWindowTitle -like '*LinkedIn*'} | Select-Object -First 1);
-                                        if ($brave) {
-                                          $code = '[DllImport(\\"user32.dll\\")] public static extern bool SetForegroundWindow(IntPtr h);';
-                                          Add-Type -MemberDefinition $code -Name Win -Namespace Native;
-                                          [Native.Win]::SetForegroundWindow($brave.MainWindowHandle);
-                                          Start-Sleep -Milliseconds 300;
-                                          [System.Windows.Forms.SendKeys]::SendWait('^v');
-                                        } else {
-                                          Write-Error 'LinkedIn window not found';
-                                        }
-                                      `.replace(/\s+/g, ' ').trim();
-
-                                      try {
-                                          execSync(`powershell -NoProfile -Command "${psPasteScript}"`);
-                                          console.log("Paste command executed successfully.");
-                                      } catch (e: any) {
-                                          console.warn("PowerShell paste failed:", e.message);
-                                          // Fallback to simple clipboard write if focus fails
-                                          await clipboardy.write(personalizedMessage!);
-                                      }
-                                      
-                                      await new Promise(r => setTimeout(r, 2000));
-                                      
-                                      typed = true;
-                                      break;
-                                  }
-                              }
-                          } catch (e) {
-                              continue;
-                          }
+                          execSync(`powershell -NoProfile -Command "${psPasteScript}"`);
+                          console.log("Paste command executed. Waiting 2 seconds...");
+                          await new Promise(r => setTimeout(r, 2000));
+                          noteAdded = true;
+                      } catch (err: any) {
+                          console.warn('Physical click/paste failed:', err.message);
                       }
-
-                      if (!typed) {
-                         console.warn("Could not focus message box for pasting.");
-                      }
-
-                      await humanDelay(3000, 4000);
-                      noteAdded = true;
                   }
 
                   // 4. Final Send (Re-enabling for testing as per request "go straight to ... and Send")
