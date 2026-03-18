@@ -491,28 +491,11 @@ class AutomationEngine {
                   const personalizedMessage = lead.message ? replacePlaceholders(lead.message, lead) : null;
                   let noteAdded = false;
                   if (personalizedMessage) {
-                      console.log("Attempting to click 'Add a note'...");
+                      console.log("Attempting to type the note using clipboard directly after physical click...");
                       
                       // Wait specifically for the modal to settle
                       await humanDelay(2000, 3000);
 
-                      // Try clicking "Add a note" with a longer timeout and broader selectors
-                      const addNoteBtnClicked = await forceClick(page, [
-                          ...SELECTORS.ADD_NOTE,
-                          "//button[contains(., 'Add a note')]",
-                          "//button[contains(., 'Add note')]",
-                          "//span[text()='Add a note']/.."
-                      ], 8000);
-
-                      if (!addNoteBtnClicked) {
-                          console.warn("Could not find/click 'Add a note' button. Checking if message box is already visible...");
-                      } else {
-                          console.log("'Add a note' clicked successfully.");
-                          await humanDelay(2500, 4000);
-                      }
-
-                      console.log("Attempting to type the note using clipboard...");
-                      
                       // Focus and paste
                       let typed = false;
                       for (const boxXPath of SELECTORS.MESSAGE_BOX) {
@@ -560,9 +543,7 @@ class AutomationEngine {
                       noteAdded = true;
                   }
 
-                  // 4. Final Send (DISABLED FOR TESTING)
-                  console.log("SKIPPING FINAL SEND BUTTON CLICK FOR TESTING.");
-                  /*
+                  // 4. Final Send (Re-enabling for testing as per request "go straight to ... and Send")
                   const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
 
                   if (sendClicked) {
@@ -584,10 +565,6 @@ class AutomationEngine {
                         throw new Error("Failed to click final Send button and status did not change.");
                       }
                   }
-                  */
-                 
-                  // For testing, we'll mark as FAILED so it stays in queue or just continue
-                  console.log("Test complete for this lead. Not updating status to SENT.");
               } else {
                   throw new Error("Connect button not found or could not be clicked.");
               }
