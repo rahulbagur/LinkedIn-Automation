@@ -444,72 +444,36 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL CDP-BASED MOUSE CLICK (User Requested 'ember +4' Logic)
-                  await new Promise(r => setTimeout(r, 5000)); // Initial delay to let modal start appearing
+                  // OS-LEVEL CDP-BASED CLICK (User Requested PointerEvent Logic)
+                  await new Promise(r => setTimeout(r, 8000)); // Delay to let modal settle
                   try {
-                      console.log("Polling for ember elements to apply +4 logic...");
-                      const startTime = Date.now();
-                      let pos = null;
-                      
-                      while (Date.now() - startTime < 10000) { // 10 second timeout
-                          pos = await cdpEvaluate(page, `
-                              (function() {
-                                  const ids = Array.from(document.querySelectorAll('[id^="ember"]'))
-                                      .map(el => {
-                                          const match = el.id.match(/^ember(\\d+)$/);
-                                          return match ? parseInt(match[1]) : null;
-                                      })
-                                      .filter(n => n !== null);
-                                  
-                                  if (ids.length === 0) return null;
-                                  
-                                  const minId = Math.min(...ids);
-                                  const targetId = 'ember' + (minId + 4);
-                                  const el = document.getElementById(targetId);
-                                  
-                                  if (el) {
-                                      const rect = el.getBoundingClientRect();
-                                      if (rect.width > 0 && rect.height > 0) {
-                                          return {
-                                              x: Math.floor(rect.left + rect.width / 2),
-                                              y: Math.floor(rect.top + rect.height / 2)
-                                          };
-                                      }
-                                  }
-                                  return null;
-                              })()
-                          `);
-                          
-                          if (pos) break;
-                          await new Promise(r => setTimeout(r, 500)); // Poll every 500ms
-                      }
-
-                      if (pos) {
-                          const { x, y } = pos;
-                          console.log(`Deriving dynamic click position via ember+4: ${x}, ${y}`);
-                          
-                          const client = await page.target().createCDPSession();
-                          await client.send('Input.dispatchMouseEvent', {
-                              type: 'mousePressed',
-                              x,
-                              y,
-                              button: 'left',
-                              clickCount: 1
-                          });
-                          await client.send('Input.dispatchMouseEvent', {
-                              type: 'mouseReleased',
-                              x,
-                              y,
-                              button: 'left',
-                              clickCount: 1
-                          });
-                          await client.detach();
-                          console.log(`CDP Input.dispatchMouseEvent executed at derived coordinates: ${x}, ${y}`);
-                      } else {
-                          console.warn("Could not derive targetId via ember+4 logic after 10 seconds of polling.");
-                      }
+                      console.log("Attempting high-level PointerEvent click on 'Add a note'...");
+                      const client = await page.target().createCDPSession();
+                      await client.send('Runtime.evaluate', {
+                        expression: `
+                          (function() {
+                            const btn = document.querySelector('button[aria-label="Add a note"]') || 
+                                        document.evaluate("//button[contains(., 'Add a note')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            if (btn) {
+                              btn.scrollIntoView();
+                              btn.focus();
+                              const opts = {bubbles: true, cancelable: true, view: window, isPrimary: true};
+                              btn.dispatchEvent(new PointerEvent('pointerdown', opts));
+                              btn.dispatchEvent(new PointerEvent('pointerup', opts));
+                              btn.dispatchEvent(new PointerEvent('click', opts));
+                              return true;
+                            }
+                            return false;
+                          })()
+                        `,
+                        bypassCSP: true,
+                        userGesture: true,
+                        awaitPromise: false
+                      });
+                      await client.detach();
+                      console.log("CDP Runtime.evaluate PointerEvent dispatched.");
                   } catch (err: any) {
-                      console.warn('Dynamic CDP mouse click failed:', err.message);
+                      console.warn('CDP PointerEvent click failed:', err.message);
                   }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
