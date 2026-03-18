@@ -455,31 +455,47 @@ class AutomationEngine {
                           return {
                             left: window.screenLeft,
                             top: window.screenTop,
+                            outerWidth: window.outerWidth,
+                            outerHeight: window.outerHeight,
+                            innerWidth: window.innerWidth,
+                            innerHeight: window.innerHeight,
                             ratio: window.devicePixelRatio
                           };
                         })()
                       `);
 
                       if (windowPos) {
+                          console.log('--- Window Metrics Debug ---');
+                          console.log('screenLeft/Top:', windowPos.left, windowPos.top);
+                          console.log('outer W/H:', windowPos.outerWidth, windowPos.outerHeight);
+                          console.log('inner W/H:', windowPos.innerWidth, windowPos.innerHeight);
+                          console.log('devicePixelRatio:', windowPos.ratio);
+                          console.log('---------------------------');
+
                           // Logical viewport coordinates from the screenshot
                           const logicalX = 787;
                           const logicalY = 217;
 
-                          // Convert to physical screen coordinates
-                          // screenLeft/Top are usually physical pixels in modern Chrome-based browsers
-                          const physicalX = Math.floor(windowPos.left + (logicalX * windowPos.ratio));
-                          const physicalY = Math.floor(windowPos.top + (logicalY * windowPos.ratio));
+                          // The viewport starts some pixels inside (borders/header).
+                          // X Offset: Browser side border (usually 8px if maximized)
+                          const xOffset = Math.floor((windowPos.outerWidth - windowPos.innerWidth) / 2);
+                          // Y Offset: Browser header (tabs/URL bar)
+                          const yOffset = Math.floor(windowPos.outerHeight - windowPos.innerHeight - xOffset);
 
-                          console.log(\`Mapping logical (\${logicalX}, \${logicalY}) to physical (\${physicalX}, \${physicalY}) at \${windowPos.ratio}x scaling\`);
+                          // Absolute Physical Screen Coordinates
+                          const physicalX = Math.floor((windowPos.left + xOffset + logicalX) * windowPos.ratio);
+                          const physicalY = Math.floor((windowPos.top + yOffset + logicalY) * windowPos.ratio);
+
+                          console.log(`Mapping logical (${logicalX}, ${logicalY}) to physical (${physicalX}, ${physicalY})`);
 
                           // 2. OS-Level PowerShell Click
-                          const cmd = \`powershell -NoProfile -Command "
+                          const cmd = `powershell -NoProfile -Command "
                             Add-Type -AssemblyName System.Windows.Forms; 
-                            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(\${physicalX}, \${physicalY}); 
-                            Add-Type -MemberDefinition '[DllImport(\\\\"user32.dll\\\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
+                            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); 
+                            Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
                             [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
                             [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
-                          "\`;
+                          "`;
                           exec(cmd);
                           
                           // Fallback Puppeteer click
