@@ -444,28 +444,48 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL CLICK (Adjusted for 1080p maximized browser offset)
+                  // OS-LEVEL CLICK (Dynamic Screen Coordinate Mapping)
                   await new Promise(r => setTimeout(r, 2000)); 
                   try {
-                      console.log('Executing physical click with window offset adjustment...');
+                      console.log('Calculating dynamic screen coordinates for physical click...');
                       
-                      // 1. Puppeteer Viewport Click (Logical)
-                      await page.mouse.click(787, 217);
+                      // 1. Get browser window position and DPI scaling via CDP
+                      const windowPos = await cdpEvaluate(page, `
+                        (function() {
+                          return {
+                            left: window.screenLeft,
+                            top: window.screenTop,
+                            ratio: window.devicePixelRatio
+                          };
+                        })()
+                      `);
 
-                      // 2. OS-Level PowerShell Click (Physical with Offset)
-                      // x = 787 + 4 (border) = 791
-                      // y = 217 + 80 (browser header) = 297
-                      const x = 791;
-                      const y = 297;
-                      const cmd = `powershell -NoProfile -Command "
-                        Add-Type -AssemblyName System.Windows.Forms; 
-                        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); 
-                        Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
-                        [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
-                        [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
-                      "`;
-                      exec(cmd);
-                      console.log(`Physical click executed at adjusted screen coords: x=${x}, y=${y}`);
+                      if (windowPos) {
+                          // Logical viewport coordinates from the screenshot
+                          const logicalX = 787;
+                          const logicalY = 217;
+
+                          // Convert to physical screen coordinates
+                          // screenLeft/Top are usually physical pixels in modern Chrome-based browsers
+                          const physicalX = Math.floor(windowPos.left + (logicalX * windowPos.ratio));
+                          const physicalY = Math.floor(windowPos.top + (logicalY * windowPos.ratio));
+
+                          console.log(\`Mapping logical (\${logicalX}, \${logicalY}) to physical (\${physicalX}, \${physicalY}) at \${windowPos.ratio}x scaling\`);
+
+                          // 2. OS-Level PowerShell Click
+                          const cmd = \`powershell -NoProfile -Command "
+                            Add-Type -AssemblyName System.Windows.Forms; 
+                            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(\${physicalX}, \${physicalY}); 
+                            Add-Type -MemberDefinition '[DllImport(\\\\"user32.dll\\\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
+                            [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
+                            [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
+                          "\`;
+                          exec(cmd);
+                          
+                          // Fallback Puppeteer click
+                          await page.mouse.click(logicalX, logicalY);
+                          console.log('Dynamic physical click executed!');
+                      }
                   } catch (err: any) {
                       console.warn('Physical click failed:', err.message);
                   }
