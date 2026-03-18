@@ -4,6 +4,7 @@ import { Browser, Page } from 'puppeteer';
 import { Leads, Logs, Settings } from '../db/queries';
 import path from 'path';
 import { exec } from 'child_process';
+import clipboardy from 'clipboardy';
 
 // Use the stealth plugin
 puppeteer.use(StealthPlugin());
@@ -510,9 +511,9 @@ class AutomationEngine {
                           await humanDelay(2500, 4000);
                       }
 
-                      console.log("Attempting to type the note...");
+                      console.log("Attempting to type the note using clipboard...");
                       
-                      // Finalize typing into message box
+                      // Focus and paste
                       let typed = false;
                       for (const boxXPath of SELECTORS.MESSAGE_BOX) {
                           try {
@@ -531,7 +532,17 @@ class AutomationEngine {
                                   if (boxHandle) {
                                       await boxHandle.focus();
                                       await boxHandle.click();
-                                      await page.type(`xpath/${boxXPath}`, personalizedMessage, { delay: 100 });
+                                      
+                                      // Copy to clipboard
+                                      await clipboardy.write(personalizedMessage);
+                                      
+                                      // OS-LEVEL PASTE (Ctrl+V)
+                                      const pasteCmd = `powershell -NoProfile -Command "$wshell = New-Object -ComObject WScript.Shell; $wshell.SendKeys('^v')"`;
+                                      exec(pasteCmd);
+                                      
+                                      console.log("Paste command executed. Waiting 2 seconds...");
+                                      await new Promise(r => setTimeout(r, 2000));
+                                      
                                       typed = true;
                                       break;
                                   }
@@ -542,24 +553,16 @@ class AutomationEngine {
                       }
 
                       if (!typed) {
-                         await cdpEvaluate(page, `
-                            (function() {
-                                const box = document.querySelector('textarea[name="message"], [role="textbox"], .msg-form__contenteditable, .ql-editor');
-                                if (box) {
-                                  box.innerHTML = "${personalizedMessage}";
-                                  box.value = "${personalizedMessage}";
-                                  box.dispatchEvent(new Event('input', { bubbles: true }));
-                                  box.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                            })()
-                         `);
+                         console.warn("Could not focus message box for pasting.");
                       }
 
                       await humanDelay(3000, 4000);
                       noteAdded = true;
                   }
 
-                  // 4. Final Send
+                  // 4. Final Send (DISABLED FOR TESTING)
+                  console.log("SKIPPING FINAL SEND BUTTON CLICK FOR TESTING.");
+                  /*
                   const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
 
                   if (sendClicked) {
@@ -581,6 +584,10 @@ class AutomationEngine {
                         throw new Error("Failed to click final Send button and status did not change.");
                       }
                   }
+                  */
+                 
+                  // For testing, we'll mark as FAILED so it stays in queue or just continue
+                  console.log("Test complete for this lead. Not updating status to SENT.");
               } else {
                   throw new Error("Connect button not found or could not be clicked.");
               }
