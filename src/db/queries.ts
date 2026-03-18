@@ -72,11 +72,12 @@ export const Leads = {
   },
   
   getPendingActions: (limit: number) => {
-    // Logic to fetch leads that are ready for action
-    // Simple version: Get NEW leads or leads with next_action_at < NOW
+    // Fetch leads that are ready for action (NEW or queued and past their next_action_at)   
+    // We use strftime to get a comparable UTC string for 'now'
     return db.prepare(`
       SELECT * FROM leads 
       WHERE status IN ('NEW', 'CONNECT_QUEUED', 'MSG_QUEUED') 
+      AND (next_action_at IS NULL OR next_action_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       LIMIT ?
     `).all(limit) as Lead[];
   }

@@ -3,6 +3,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer';
 import { Leads, Logs, Settings } from '../db/queries';
 import path from 'path';
+import { exec } from 'child_process';
 
 // Use the stealth plugin
 puppeteer.use(StealthPlugin());
@@ -172,22 +173,24 @@ const replacePlaceholders = (template: string, lead: any) => {
 };
 
 const simulateScroll = async (page: Page) => {
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve) => {
-      let totalHeight = 0;
-      const distance = 100;
-      const timer = setInterval(() => {
-        const scrollHeight = document.body.scrollHeight;
-        window.scrollBy(0, distance);
-        totalHeight += distance;
+  await page.evaluate(`
+    (async () => {
+      await new Promise((resolve) => {
+        let totalHeight = 0;
+        const distance = 100;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
 
-        if (totalHeight >= scrollHeight / 2) { // Scroll half page
-          clearInterval(timer);
-          resolve();
-        }
-      }, 100 + Math.random() * 100);
-    });
-  });
+          if (totalHeight >= scrollHeight / 2) { // Scroll half page
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100 + Math.random() * 100);
+      });
+    })()
+  `);
 };
 
 // --- Automation Engine ---
@@ -242,7 +245,8 @@ class AutomationEngine {
 
       // --- TAB SYNC LAYER ---
       const syncTab = async () => {
-          const allPages = await this.browser!.pages();
+          if (!this.browser) return null;
+          const allPages = await this.browser.pages();
           console.log('--- Current Open Tabs ---');
           allPages.forEach((p, i) => console.log(`Tab ${i}: ${p.url()}`));
           console.log('-------------------------');
@@ -262,7 +266,7 @@ class AutomationEngine {
       // Keep running as long as isRunning is true
       while (this.isRunning) {
         // Refresh page reference from current browser state
-        page = await syncTab();
+        page = isSimulation ? null : await syncTab();
         const hasMore = await this.processQueue(page, settings, isSimulation, syncTab);
         
         if (!hasMore) {
@@ -335,7 +339,7 @@ class AutomationEngine {
                   // Wait for LinkedIn to finish rendering the React/Ember app
                   try {
                       const rootCheck = `(function() {
-                          const root = document.querySelector('#w-react-root');
+                          const root = document.querySelector('#w-react-root') || document.querySelector('.authentication-outlet') || document.querySelector('#content-main');
                           return root && root.children.length > 0;
                       })()`;
                       const startTime = Date.now();
@@ -350,13 +354,13 @@ class AutomationEngine {
                       if (ready) {
                           console.log('Page fully rendered, proceeding...');
                       } else {
-                          console.warn("Timed out waiting for #w-react-root, proceeding anyway...");
+                          console.warn("Timed out waiting for page root, proceeding anyway...");
                       }
                   } catch (e) {
-                      console.warn("Error checking for #w-react-root, proceeding anyway...");
+                      console.warn("Error checking for page root, proceeding anyway...");
                   }
                   
-                  await humanDelay(7000, 12000); // Increased by 2s
+                  await humanDelay(7000, 12000); 
                   await simulateScroll(page);
                   
                   const title = await page.title();
@@ -370,14 +374,14 @@ class AutomationEngine {
                   break;
               } catch (e: any) {
                   console.warn(`Navigation attempt ${i+1} failed: ${e.message}`);
-                  await humanDelay(7000, 12000); // Increased by 2s
+                  await humanDelay(7000, 12000); 
               }
           }
 
           if (!navigationSuccess) throw new Error("Navigation failed after multiple attempts");
 
           await humanMoveMouse(page);
-          await humanDelay(4000, 6000); // Increased by 2s
+          await humanDelay(4000, 6000); 
 
           // --- ROBUSTNESS LAYER: Close any blocking chat windows ---
           await cdpEvaluate(page, `
@@ -410,8 +414,9 @@ class AutomationEngine {
           if (lead.status === 'NEW' || lead.status === 'CONNECT_QUEUED') {
               if (pageState.isConnected) {
                   console.log("Lead is already connected. Updating status.");
-                  Leads.updateStatus(lead.id, 'CONNECTED');
-                  Logs.add(lead.id, 'CONNECT', 'INFO', "Already connected");
+                  const nextStatus = lead.message ? 'MSG_QUEUED' : 'CONNECTED';
+                  Leads.updateStatus(lead.id, nextStatus);
+                  Logs.add(lead.id, 'CONNECT', 'INFO', `Already connected, moving to ${nextStatus}`);
                   continue;
               }
 
@@ -431,7 +436,7 @@ class AutomationEngine {
                   console.log("Connect button not found in main bar, trying 'More' menu...");
                   const moreClicked = await forceClick(page, SELECTORS.MORE_BUTTONS);
                   if (moreClicked) {
-                      await humanDelay(3500, 4500); // Increased by 2s
+                      await humanDelay(3500, 4500); 
                       clicked = await forceClick(page, SELECTORS.DROPDOWN_CONNECT);
                   }
               }
@@ -439,10 +444,9 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL PHYSICAL MOUSE CLICK (User Requested)
+                  // OS-LEVEL PHYSICAL MOUSE CLICK (User Requested Fallback)
                   await new Promise(r => setTimeout(r, 2000));
                   try {
-                      const { exec } = await import('child_process');
                       const x = 755;
                       const y = 237;
                       const cmd = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);"`;
@@ -520,7 +524,6 @@ class AutomationEngine {
                       await humanDelay(3000, 4000);
                       noteAdded = true;
                   }
-                  await client.detach();
 
                   // 4. Final Send
                   const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE);
@@ -609,7 +612,7 @@ class AutomationEngine {
                               await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}").click()`);
                               await humanDelay(4000, 6000); 
                               console.log("Message sent!");
-                              Leads.updateStatus(lead.id, 'MSG_SENT');
+                              Leads.updateStatus(lead.id, 'COMPLETED');
                               Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent to connection');
                           } else {
                               throw new Error("Could not find Send message button");
@@ -626,9 +629,10 @@ class AutomationEngine {
           }
         }
 
-        const minDelay = parseInt(settings.min_delay_seconds || '45') * 1000;
-        const maxDelay = parseInt(settings.max_delay_seconds || '90') * 1000;
-        await humanDelay(minDelay, maxDelay);
+        const minDelay = parseInt(settings.min_delay_seconds || '45');
+        const maxDelay = parseInt(settings.max_delay_seconds || '90');
+        const delayMs = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay) * 1000;
+        await humanDelay(delayMs, delayMs + 2000);
 
       } catch (error: any) {
         console.error(`Failed to process lead ${lead.id}:`, error);
