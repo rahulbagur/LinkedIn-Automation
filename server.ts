@@ -1,6 +1,8 @@
+import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { initDb } from "./src/db";
+import { Leads } from "./src/db/queries";
 import apiRoutes from "./src/routes/api";
 import fs from "fs";
 import path from "path";
@@ -11,10 +13,14 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Initialize DB
   initDb();
+  
+  // Temporary: Reset all leads to NEW on launch
+  console.log("Temporary: Resetting all leads to NEW status...");
+  Leads.resetAll();
 
   app.use(express.json());
 
@@ -33,7 +39,8 @@ async function startServer() {
   app.use("/api", apiRoutes);
 
   // Vite middleware for development
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
+  console.log(`Checking Mode: NODE_ENV=${process.env.NODE_ENV}, isDev=${isDev}`);
   
   if (isDev) {
     console.log("Starting Vite in development mode...");

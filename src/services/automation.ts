@@ -56,21 +56,21 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
       let found = false;
       while (Date.now() - startTime < timeout) {
           const checkExpression = isXPath 
-            ? `document.evaluate("${selector}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`
-            : `document.querySelector("${selector}") !== null`;
-          
+            ? `document.evaluate(${JSON.stringify(selector)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`
+            : `document.querySelector(${JSON.stringify(selector)}) !== null`;
+
           if (await cdpEvaluate(page, checkExpression)) {
               found = true;
               break;
           }
           await new Promise(r => setTimeout(r, 500));
-      }
+          }
 
-      if (!found) continue;
+          if (!found) continue;
 
-      const clickExpression = `
-        (function() {
-          const sel = "${selector}";
+          const clickExpression = `
+          (function() {
+          const sel = ${JSON.stringify(selector)};
           const isXP = ${isXPath};
           const el = isXP 
             ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue
@@ -187,7 +187,7 @@ const simulateScroll = async (page: Page) => {
             clearInterval(timer);
             resolve();
           }
-        }, 100 + Math.random() * 100);
+        }, 20 + Math.random() * 30);
       });
     })()
   `);
@@ -332,7 +332,7 @@ class AutomationEngine {
               try {
                   console.log(`Navigating to ${lead.linkedin_url} (Attempt ${i+1})`);
                   await page.goto(lead.linkedin_url, { 
-                    waitUntil: 'networkidle2', 
+                    waitUntil: 'domcontentloaded', 
                     timeout: 60000
                   });
                   
@@ -344,7 +344,7 @@ class AutomationEngine {
                       })()`;
                       const startTime = Date.now();
                       let ready = false;
-                      while (Date.now() - startTime < 15000) {
+                      while (Date.now() - startTime < 5000) {
                           if (await cdpEvaluate(page, rootCheck)) {
                               ready = true;
                               break;
@@ -360,7 +360,7 @@ class AutomationEngine {
                       console.warn("Error checking for page root, proceeding anyway...");
                   }
                   
-                  await humanDelay(7000, 12000); 
+                  await humanDelay(500, 1000); 
                   await simulateScroll(page);
                   
                   const title = await page.title();
@@ -374,14 +374,14 @@ class AutomationEngine {
                   break;
               } catch (e: any) {
                   console.warn(`Navigation attempt ${i+1} failed: ${e.message}`);
-                  await humanDelay(7000, 12000); 
+                  await humanDelay(3000, 5000); 
               }
           }
 
           if (!navigationSuccess) throw new Error("Navigation failed after multiple attempts");
 
           await humanMoveMouse(page);
-          await humanDelay(4000, 6000); 
+          await humanDelay(500, 1000); 
 
           // --- ROBUSTNESS LAYER: Close any blocking chat windows ---
           await cdpEvaluate(page, `
@@ -444,16 +444,61 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL PHYSICAL MOUSE CLICK (User Requested Fallback)
-                  await new Promise(r => setTimeout(r, 2000));
+                  // OS-LEVEL CDP-BASED MOUSE CLICK (User Requested 'ember +4' Logic)
+                  await new Promise(r => setTimeout(r, 12000));
                   try {
-                      const x = 755;
-                      const y = 237;
-                      const cmd = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);"`;
-                      exec(cmd);
-                      console.log(`Physical OS-level mouse click executed at x=${x}, y=${y}`);
+                      const pos = await cdpEvaluate(page, `
+                          (function() {
+                              const ids = Array.from(document.querySelectorAll('[id^="ember"]'))
+                                  .map(el => {
+                                      const match = el.id.match(/^ember(\\d+)$/);
+                                      return match ? parseInt(match[1]) : null;
+                                  })
+                                  .filter(n => n !== null);
+                              
+                              if (ids.length === 0) return null;
+                              
+                              const minId = Math.min(...ids);
+                              const targetId = 'ember' + (minId + 4);
+                              const el = document.getElementById(targetId);
+                              
+                              if (el) {
+                                  const rect = el.getBoundingClientRect();
+                                  return {
+                                      x: Math.floor(rect.left + rect.width / 2),
+                                      y: Math.floor(rect.top + rect.height / 2)
+                                  };
+                              }
+                              return null;
+                          })()
+                      `);
+
+                      if (pos) {
+                          const { x, y } = pos;
+                          console.log(\`Deriving dynamic click position via ember+4: \${x}, \${y}\`);
+                          
+                          const client = await page.target().createCDPSession();
+                          await client.send('Input.dispatchMouseEvent', {
+                              type: 'mousePressed',
+                              x,
+                              y,
+                              button: 'left',
+                              clickCount: 1
+                          });
+                          await client.send('Input.dispatchMouseEvent', {
+                              type: 'mouseReleased',
+                              x,
+                              y,
+                              button: 'left',
+                              clickCount: 1
+                          });
+                          await client.detach();
+                          console.log(\`CDP Input.dispatchMouseEvent executed at derived coordinates: \${x}, \${y}\`);
+                      } else {
+                          console.warn("Could not derive targetId via ember+4 logic.");
+                      }
                   } catch (err: any) {
-                      console.warn('Physical mouse click failed:', err.message);
+                      console.warn('Dynamic CDP mouse click failed:', err.message);
                   }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
@@ -476,6 +521,26 @@ class AutomationEngine {
                   const personalizedMessage = lead.message ? replacePlaceholders(lead.message, lead) : null;
                   let noteAdded = false;
                   if (personalizedMessage) {
+                      console.log("Attempting to click 'Add a note'...");
+                      
+                      // Wait specifically for the modal to settle
+                      await humanDelay(2000, 3000);
+
+                      // Try clicking "Add a note" with a longer timeout and broader selectors
+                      const addNoteBtnClicked = await forceClick(page, [
+                          ...SELECTORS.ADD_NOTE,
+                          "//button[contains(., 'Add a note')]",
+                          "//button[contains(., 'Add note')]",
+                          "//span[text()='Add a note']/.."
+                      ], 8000);
+
+                      if (!addNoteBtnClicked) {
+                          console.warn("Could not find/click 'Add a note' button. Checking if message box is already visible...");
+                      } else {
+                          console.log("'Add a note' clicked successfully.");
+                          await humanDelay(2500, 4000);
+                      }
+
                       console.log("Attempting to type the note...");
                       
                       // Finalize typing into message box
