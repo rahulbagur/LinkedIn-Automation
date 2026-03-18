@@ -478,7 +478,10 @@ class AutomationEngine {
                           // Click Twice (Double click for focus assurance)
                           execSync(`powershell -NoProfile -Command "${psClickCommand}"`);
                           
-                          console.log("Textarea clicked. Pasting message via PowerShell...");
+                          console.log("Textarea clicked. Waiting 5 seconds before pasting...");
+                          await new Promise(r => setTimeout(r, 5000));
+                          
+                          console.log("Pasting message via PowerShell...");
                           
                           const psPasteScript = `
                             Add-Type -AssemblyName System.Windows.Forms;
