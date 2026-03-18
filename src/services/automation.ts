@@ -475,7 +475,7 @@ class AutomationEngine {
 
                       if (pos) {
                           const { x, y } = pos;
-                          console.log(\`Deriving dynamic click position via ember+4: \${x}, \${y}\`);
+                          console.log(`Deriving dynamic click position via ember+4: ${x}, ${y}`);
                           
                           const client = await page.target().createCDPSession();
                           await client.send('Input.dispatchMouseEvent', {
@@ -493,7 +493,7 @@ class AutomationEngine {
                               clickCount: 1
                           });
                           await client.detach();
-                          console.log(\`CDP Input.dispatchMouseEvent executed at derived coordinates: \${x}, \${y}\`);
+                          console.log(`CDP Input.dispatchMouseEvent executed at derived coordinates: ${x}, ${y}`);
                       } else {
                           console.warn("Could not derive targetId via ember+4 logic.");
                       }
