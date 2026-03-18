@@ -445,33 +445,44 @@ class AutomationEngine {
                   console.log("Connect button clicked. Waiting for modal...");
                   
                   // OS-LEVEL CDP-BASED MOUSE CLICK (User Requested 'ember +4' Logic)
-                  await new Promise(r => setTimeout(r, 12000));
+                  await new Promise(r => setTimeout(r, 5000)); // Initial delay to let modal start appearing
                   try {
-                      const pos = await cdpEvaluate(page, `
-                          (function() {
-                              const ids = Array.from(document.querySelectorAll('[id^="ember"]'))
-                                  .map(el => {
-                                      const match = el.id.match(/^ember(\\d+)$/);
-                                      return match ? parseInt(match[1]) : null;
-                                  })
-                                  .filter(n => n !== null);
-                              
-                              if (ids.length === 0) return null;
-                              
-                              const minId = Math.min(...ids);
-                              const targetId = 'ember' + (minId + 4);
-                              const el = document.getElementById(targetId);
-                              
-                              if (el) {
-                                  const rect = el.getBoundingClientRect();
-                                  return {
-                                      x: Math.floor(rect.left + rect.width / 2),
-                                      y: Math.floor(rect.top + rect.height / 2)
-                                  };
-                              }
-                              return null;
-                          })()
-                      `);
+                      console.log("Polling for ember elements to apply +4 logic...");
+                      const startTime = Date.now();
+                      let pos = null;
+                      
+                      while (Date.now() - startTime < 10000) { // 10 second timeout
+                          pos = await cdpEvaluate(page, `
+                              (function() {
+                                  const ids = Array.from(document.querySelectorAll('[id^="ember"]'))
+                                      .map(el => {
+                                          const match = el.id.match(/^ember(\\d+)$/);
+                                          return match ? parseInt(match[1]) : null;
+                                      })
+                                      .filter(n => n !== null);
+                                  
+                                  if (ids.length === 0) return null;
+                                  
+                                  const minId = Math.min(...ids);
+                                  const targetId = 'ember' + (minId + 4);
+                                  const el = document.getElementById(targetId);
+                                  
+                                  if (el) {
+                                      const rect = el.getBoundingClientRect();
+                                      if (rect.width > 0 && rect.height > 0) {
+                                          return {
+                                              x: Math.floor(rect.left + rect.width / 2),
+                                              y: Math.floor(rect.top + rect.height / 2)
+                                          };
+                                      }
+                                  }
+                                  return null;
+                              })()
+                          `);
+                          
+                          if (pos) break;
+                          await new Promise(r => setTimeout(r, 500)); // Poll every 500ms
+                      }
 
                       if (pos) {
                           const { x, y } = pos;
@@ -495,7 +506,7 @@ class AutomationEngine {
                           await client.detach();
                           console.log(`CDP Input.dispatchMouseEvent executed at derived coordinates: ${x}, ${y}`);
                       } else {
-                          console.warn("Could not derive targetId via ember+4 logic.");
+                          console.warn("Could not derive targetId via ember+4 logic after 10 seconds of polling.");
                       }
                   } catch (err: any) {
                       console.warn('Dynamic CDP mouse click failed:', err.message);
