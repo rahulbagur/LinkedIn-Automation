@@ -458,9 +458,14 @@ class AutomationEngine {
                       const cmd = `powershell -NoProfile -Command "${psCommand}"`;
                       exec(cmd);
                       
+                      // Wait 2 seconds and click again at the same place
+                      console.log('Waiting 2 seconds before second click...');
+                      await new Promise(r => setTimeout(r, 2000));
+                      exec(cmd);
+
                       // Fallback Puppeteer viewport click (Original logical coords)
                       await page.mouse.click(956, 217);
-                      console.log('Physical click at 956, 337 executed successfully!');
+                      console.log('Double physical click at 956, 337 executed successfully!');
                   } catch (err: any) {
                       console.warn('Physical click failed:', err.message);
                   }
