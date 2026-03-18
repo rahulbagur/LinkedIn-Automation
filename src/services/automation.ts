@@ -3,7 +3,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer';
 import { Leads, Logs, Settings } from '../db/queries';
 import path from 'path';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import clipboardy from 'clipboardy';
 
 // Use the stealth plugin
@@ -516,14 +516,32 @@ class AutomationEngine {
                                       await boxHandle.focus();
                                       await boxHandle.click();
                                       
-                                      // Copy to clipboard
-                                      await clipboardy.write(personalizedMessage);
+                                      console.log("Pasting message via PowerShell (Foreground Focus)...");
+                                      const psPasteScript = `
+                                        Add-Type -AssemblyName System.Windows.Forms;
+                                        Set-Clipboard -Value '${personalizedMessage!.replace(/'/g, "''")}';
+                                        Start-Sleep -Milliseconds 300;
+                                        $brave = (Get-Process | Where-Object {$_.MainWindowTitle -like '*LinkedIn*'} | Select-Object -First 1);
+                                        if ($brave) {
+                                          $code = '[DllImport(\\"user32.dll\\")] public static extern bool SetForegroundWindow(IntPtr h);';
+                                          Add-Type -MemberDefinition $code -Name Win -Namespace Native;
+                                          [Native.Win]::SetForegroundWindow($brave.MainWindowHandle);
+                                          Start-Sleep -Milliseconds 300;
+                                          [System.Windows.Forms.SendKeys]::SendWait('^v');
+                                        } else {
+                                          Write-Error 'LinkedIn window not found';
+                                        }
+                                      `.replace(/\s+/g, ' ').trim();
+
+                                      try {
+                                          execSync(`powershell -NoProfile -Command "${psPasteScript}"`);
+                                          console.log("Paste command executed successfully.");
+                                      } catch (e: any) {
+                                          console.warn("PowerShell paste failed:", e.message);
+                                          // Fallback to simple clipboard write if focus fails
+                                          await clipboardy.write(personalizedMessage!);
+                                      }
                                       
-                                      // OS-LEVEL PASTE (Ctrl+V)
-                                      const pasteCmd = `powershell -NoProfile -Command "$wshell = New-Object -ComObject WScript.Shell; $wshell.SendKeys('^v')"`;
-                                      exec(pasteCmd);
-                                      
-                                      console.log("Paste command executed. Waiting 2 seconds...");
                                       await new Promise(r => setTimeout(r, 2000));
                                       
                                       typed = true;
