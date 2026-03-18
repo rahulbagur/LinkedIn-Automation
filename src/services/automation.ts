@@ -501,9 +501,9 @@ class AutomationEngine {
                           console.log("Paste command executed. Waiting 500ms before Send click...");
                           await new Promise(r => setTimeout(r, 500));
 
-                          // OS-LEVEL CLICK (Send Button: x=1188, y=450)
-                          console.log('Executing physical click on Send button (x=1188, y=450)...');
-                          const psSendClickCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(1188, 450); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
+                          // OS-LEVEL CLICK (Send Button: x=1188, y=469)
+                          console.log('Executing physical click on Send button (x=1188, y=469)...');
+                          const psSendClickCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(1188, 469); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
                           execSync(`powershell -NoProfile -Command "${psSendClickCommand}"`);
                           
                           console.log("Send button clicked physically. Waiting 2 seconds...");
