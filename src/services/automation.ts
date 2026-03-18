@@ -444,64 +444,28 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL CLICK (Dynamic Screen Coordinate Mapping)
+                  // OS-LEVEL CLICK (User Requested Fixed Coordinates: x=787, y=337)
                   await new Promise(r => setTimeout(r, 2000)); 
                   try {
-                      console.log('Calculating dynamic screen coordinates for physical click...');
+                      console.log('Executing physical click at x=787, y=337 (Adjusted for Browser Chrome)...');
                       
-                      // 1. Get browser window position and DPI scaling via CDP
-                      const windowPos = await cdpEvaluate(page, `
-                        (function() {
-                          return {
-                            left: window.screenLeft,
-                            top: window.screenTop,
-                            outerWidth: window.outerWidth,
-                            outerHeight: window.outerHeight,
-                            innerWidth: window.innerWidth,
-                            innerHeight: window.innerHeight,
-                            ratio: window.devicePixelRatio
-                          };
-                        })()
-                      `);
+                      // Absolute Screen Coordinates
+                      const physicalX = 787;
+                      const physicalY = 337;
 
-                      if (windowPos) {
-                          console.log('--- Window Metrics Debug ---');
-                          console.log('screenLeft/Top:', windowPos.left, windowPos.top);
-                          console.log('outer W/H:', windowPos.outerWidth, windowPos.outerHeight);
-                          console.log('inner W/H:', windowPos.innerWidth, windowPos.innerHeight);
-                          console.log('devicePixelRatio:', windowPos.ratio);
-                          console.log('---------------------------');
-
-                          // Logical viewport coordinates from the screenshot
-                          const logicalX = 787;
-                          const logicalY = 217;
-
-                          // The viewport starts some pixels inside (borders/header).
-                          // X Offset: Browser side border (usually 8px if maximized)
-                          const xOffset = Math.floor((windowPos.outerWidth - windowPos.innerWidth) / 2);
-                          // Y Offset: Browser header (tabs/URL bar)
-                          const yOffset = Math.floor(windowPos.outerHeight - windowPos.innerHeight - xOffset);
-
-                          // Absolute Physical Screen Coordinates
-                          const physicalX = Math.floor((windowPos.left + xOffset + logicalX) * windowPos.ratio);
-                          const physicalY = Math.floor((windowPos.top + yOffset + logicalY) * windowPos.ratio);
-
-                          console.log(`Mapping logical (${logicalX}, ${logicalY}) to physical (${physicalX}, ${physicalY})`);
-
-                          // 2. OS-Level PowerShell Click
-                          const cmd = `powershell -NoProfile -Command "
-                            Add-Type -AssemblyName System.Windows.Forms; 
-                            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); 
-                            Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
-                            [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
-                            [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
-                          "`;
-                          exec(cmd);
-                          
-                          // Fallback Puppeteer click
-                          await page.mouse.click(logicalX, logicalY);
-                          console.log('Dynamic physical click executed!');
-                      }
+                      // OS-Level PowerShell Click
+                      const cmd = `powershell -NoProfile -Command "
+                        Add-Type -AssemblyName System.Windows.Forms; 
+                        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); 
+                        Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
+                        [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
+                        [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
+                      "`;
+                      exec(cmd);
+                      
+                      // Fallback Puppeteer viewport click (Original logical coords)
+                      await page.mouse.click(787, 217);
+                      console.log('Physical click at 787, 337 executed successfully!');
                   } catch (err: any) {
                       console.warn('Physical click failed:', err.message);
                   }
