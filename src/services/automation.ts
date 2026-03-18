@@ -449,18 +449,13 @@ class AutomationEngine {
                   try {
                       console.log('Executing physical click at x=787, y=337 (Adjusted for Browser Chrome)...');
                       
-                      // Absolute Screen Coordinates
                       const physicalX = 787;
                       const physicalY = 337;
 
-                      // OS-Level PowerShell Click
-                      const cmd = `powershell -NoProfile -Command "
-                        Add-Type -AssemblyName System.Windows.Forms; 
-                        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); 
-                        Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; 
-                        [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); 
-                        [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);
-                      "`;
+                      // Use a robust one-liner PowerShell command
+                      const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
+                      
+                      const cmd = `powershell -NoProfile -Command "${psCommand}"`;
                       exec(cmd);
                       
                       // Fallback Puppeteer viewport click (Original logical coords)
