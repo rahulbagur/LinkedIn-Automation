@@ -117,6 +117,7 @@ const SELECTORS = {
     "//a[.//span[text()='Connect']]"
   ],
   MORE_BUTTONS: [
+    "//*[@id='workspace']/div/div/div[1]/div/div/div[1]/div/section/div/div/div[2]/div[3]/div/div/div[3]/button/span",
     "button[aria-label='More actions']",
     "button[aria-label='More']",
     "//button[@aria-label='More actions' or @aria-label='More']",
@@ -124,6 +125,7 @@ const SELECTORS = {
     "//button[contains(@class, 'artdeco-button--secondary') and (contains(., 'More') or contains(@aria-label, 'More actions'))]"
   ],
   DROPDOWN_CONNECT: [
+    "//*[@id=':r1t:']/div/div/div[3]/div/div/a/div",
     "div[role='button'][aria-label^='Connect']",
     "//div[@role='button' and (@aria-label='Connect' or contains(@aria-label, 'Connect'))]",
     "//div[@role='button']//span[text()='Connect']/..",
@@ -521,6 +523,8 @@ class AutomationEngine {
                       await humanDelay(5000, 7000);
                       console.log(`Connection request processed ${noteAdded ? 'with' : 'without'} note!`);
                       Leads.updateStatus(lead.id, 'CONNECT_SENT');
+                      // Clear next_action_at so it doesn't get picked up as 'past due' incorrectly
+                      Leads.updateActionTimestamps(lead.id, null);
                       Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
                   } else {
                       const sentCheck = await cdpEvaluate(page, `

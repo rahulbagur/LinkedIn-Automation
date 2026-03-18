@@ -18,10 +18,6 @@ async function startServer() {
   // Initialize DB
   initDb();
   
-  // Temporary: Reset all leads to NEW on launch
-  console.log("Temporary: Resetting all leads to NEW status...");
-  Leads.resetAll();
-
   app.use(express.json());
 
   // Request logger for debugging
