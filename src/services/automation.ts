@@ -444,54 +444,24 @@ class AutomationEngine {
               if (clicked) {
                   console.log("Connect button clicked. Waiting for modal...");
                   
-                  // OS-LEVEL CDP-BASED CLICK (User Requested PointerEvent Logic)
-                  await new Promise(r => setTimeout(r, 8000)); // Delay to let modal settle
-                  
-                  // DEBUG: Take a screenshot to help find physical coordinates
+                  // OS-LEVEL CLICK (User Requested x=787, y=217)
+                  await new Promise(r => setTimeout(r, 2000)); 
                   try {
-                      console.log('Taking screenshot for coordinate debugging...');
-                      await page.screenshot({ path: 'modal_screenshot.png' });
-                      console.log('Screenshot saved to modal_screenshot.png');
-                  } catch (err: any) {
-                      console.warn('Failed to take screenshot:', err.message);
-                  }
-
-                  try {
-                      const client = await page.target().createCDPSession();
+                      console.log('Executing physical click at 787, 217...');
                       
-                      // DEBUG: Check if CDP can see the button at all
-                      const check = await client.send('Runtime.evaluate', {
-                        expression: `document.querySelector('button[aria-label="Add a note"]') ? 'found' : 'not found'`,
-                        bypassCSP: true
-                      });
-                      console.log('Add a note button visibility via CDP:', check.result.value);
+                      // 1. Puppeteer Viewport Click (Matches the screenshot coordinates)
+                      await page.mouse.click(787, 217);
+                      console.log('Puppeteer viewport click executed at 787, 217');
 
-                      console.log("Attempting high-level PointerEvent click on 'Add a note'...");
-                      await client.send('Runtime.evaluate', {
-                        expression: `
-                          (function() {
-                            const btn = document.querySelector('button[aria-label="Add a note"]') || 
-                                        document.evaluate("//button[contains(., 'Add a note')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                            if (btn) {
-                              btn.scrollIntoView();
-                              btn.focus();
-                              const opts = {bubbles: true, cancelable: true, view: window, isPrimary: true};
-                              btn.dispatchEvent(new PointerEvent('pointerdown', opts));
-                              btn.dispatchEvent(new PointerEvent('pointerup', opts));
-                              btn.dispatchEvent(new PointerEvent('click', opts));
-                              return true;
-                            }
-                            return false;
-                          })()
-                        `,
-                        bypassCSP: true,
-                        userGesture: true,
-                        awaitPromise: false
-                      });
-                      await client.detach();
-                      console.log("CDP Runtime.evaluate PointerEvent dispatched.");
+                      // 2. OS-Level PowerShell Click (Absolute fallback)
+                      // Note: Using PowerShell because robotjs requires C++ build tools which are missing
+                      const x = 787;
+                      const y = 217;
+                      const cmd = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); Add-Type -MemberDefinition '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);' -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);"`;
+                      exec(cmd);
+                      console.log(`OS-level physical click executed via PowerShell at x=${x}, y=${y}`);
                   } catch (err: any) {
-                      console.warn('CDP PointerEvent click failed:', err.message);
+                      console.warn('Physical click failed:', err.message);
                   }
 
                   // 2. Handle "How do you know" modal (Pre-Note Step)
