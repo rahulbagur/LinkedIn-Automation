@@ -446,9 +446,27 @@ class AutomationEngine {
                   
                   // OS-LEVEL CDP-BASED CLICK (User Requested PointerEvent Logic)
                   await new Promise(r => setTimeout(r, 8000)); // Delay to let modal settle
+                  
+                  // DEBUG: Take a screenshot to help find physical coordinates
                   try {
-                      console.log("Attempting high-level PointerEvent click on 'Add a note'...");
+                      console.log('Taking screenshot for coordinate debugging...');
+                      await page.screenshot({ path: 'modal_screenshot.png' });
+                      console.log('Screenshot saved to modal_screenshot.png');
+                  } catch (err: any) {
+                      console.warn('Failed to take screenshot:', err.message);
+                  }
+
+                  try {
                       const client = await page.target().createCDPSession();
+                      
+                      // DEBUG: Check if CDP can see the button at all
+                      const check = await client.send('Runtime.evaluate', {
+                        expression: `document.querySelector('button[aria-label="Add a note"]') ? 'found' : 'not found'`,
+                        bypassCSP: true
+                      });
+                      console.log('Add a note button visibility via CDP:', check.result.value);
+
+                      console.log("Attempting high-level PointerEvent click on 'Add a note'...");
                       await client.send('Runtime.evaluate', {
                         expression: `
                           (function() {
