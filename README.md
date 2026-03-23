@@ -1,25 +1,31 @@
-# LinkedIn Automation Suite (v3.0)
+# LinkedIn Automation Suite (v3.5)
 
 A high-reliability, local automation tool that connects directly to your **real** browser session to manage LinkedIn connections and messaging safely.
 
-## Key Features (v3.0)
+## Key Features (v3.5)
 
+- **Three-Route Intelligent Flow**: 
+  - **Route 1 (Direct)**: Clicks the primary "Connect" button if immediately visible.
+  - **Route 2 (Hidden)**: Automatically expands the "More" dropdown to find the "Connect" option if the primary button is missing.
+  - **Route 3 (Connected)**: Detects existing "1st" degree connections and bypasses the connection flow to send direct messages.
+- **Physical OS-Level Interaction**: Uses PowerShell-driven coordinate clicks and clipboard pasting (`Ctrl+V`) to bypass complex React/Ember event filters and guarantee focus.
 - **Remote Debugging Connection**: Connects to your active Brave/Chrome session via port 9222. Uses your real cookies, history, and trusted session.
-- **React-Compatible Interaction**: Uses DOM-level events (`element.click()`) to ensure LinkedIn's React-based UI registers every action.
-- **Stealth by Default**: Since it runs in your real browser, it inherits your natural browser fingerprint and session trust.
-- **Unified Queue**: Handles Connection Requests and Direct Messaging in a single flow.
+- **Ember/React Compatibility**: Improved selector strategy handles dynamic IDs (e.g., `msg-form-emberXXXX`) using partial attribute matching.
+- **Stealth by Default**: Inherits your natural browser fingerprint and session trust.
 - **Local Privacy**: Your data, logs, and lead lists never leave your machine.
 
 ## High Reliability Architecture
 
-- **Selector Strategy**: The bot uses a **Selector Registry** that prioritizes `aria-label` and other stable accessibility attributes. It automatically falls back to multiple alternative XPaths if a primary selector fails.
-- **Smart Modal Handling**: Automatically detects LinkedIn's dynamic modals and handles the "How do you know this person" step and the "Add a note" workflow using React-compatible DOM events.
-- **Human-Like Delay System**: Implements randomized mouse movements and variable wait times between actions to prevent detection.
+- **Selector Registry**: Prioritizes `aria-label` and stable accessibility attributes with multi-layer XPath fallbacks.
+- **Connection Level Detection**: Uses targeted XPaths to identify relationship status (1st, 2nd, 3rd) and adjust the automation strategy in real-time.
+- **Smart Modal Handling**: Automatically detects and processes "How do you know this person" steps and "Add a note" workflows.
+- **Human-Like Delay System**: Implements randomized mouse movements and variable wait times.
 
 ## Prerequisites
 
 1.  **Brave Browser** (Recommended) or Google Chrome.
 2.  **Node.js** (v18+) and npm.
+3.  **Windows OS** (Required for physical OS-level interaction features).
 
 ## Setup & Launch Guide
 
@@ -55,9 +61,9 @@ Navigate to `http://localhost:3000`.
 
 ## Troubleshooting
 
-- **"Connection Failed"**: Ensure you have completely closed all browser windows before running the command in Step 1. If a background process is still running, port 9222 won't open.
-- **Verification**: To check if debug mode is active, visit `http://localhost:9222` in your browser. You should see a list of open tabs.
-- **UI Lock**: If buttons don't click, ensure you aren't manually moving the mouse *while* the bot is attempting a click.
+- **"Connection Failed"**: Ensure you have completely closed all browser windows before running the command in Step 1.
+- **Verification**: Visit `http://localhost:9222` in your browser. You should see a list of open tabs.
+- **UI Lock**: If buttons don't click, ensure you aren't manually moving the mouse *while* the bot is attempting a physical click.
 
 ## Disclaimer
 

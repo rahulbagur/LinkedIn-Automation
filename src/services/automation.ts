@@ -65,11 +65,11 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
               break;
           }
           await new Promise(r => setTimeout(r, 500));
-          }
+      }
 
-          if (!found) continue;
+      if (!found) continue;
 
-          const clickExpression = `
+      const clickExpression = `
           (function() {
           const sel = ${JSON.stringify(selector)};
           const isXP = ${isXPath};
@@ -105,60 +105,48 @@ const forceClick = async (page: Page, selectors: string | string[], timeout = 30
 // --- Selectors Registry ---
 
 const SELECTORS = {
+  CONNECTION_LEVEL: "//*[@id='workspace']/div/div/div[1]/div/div/div[1]/div/section/div/div/div[2]/div[1]/div[1]/div/div[1]/p",
   CONNECT_BUTTONS: [
     "button[aria-label^='Connect']", // CSS Primary
-    "//button[@aria-label='Connect' or contains(@aria-label, 'Connect with')]",
-    "//a[@aria-label='Connect' or contains(@aria-label, 'Connect with')]",
-    "//*[@id='workspace']//a[contains(., 'Connect') or contains(@aria-label, 'Connect')]",
-    "//*[@id='workspace']//button[contains(., 'Connect') or contains(@aria-label, 'Connect')]",
-    "//button[contains(@class, 'pvs-profile-actions__action')]//span[text()='Connect']/..",
-    "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Connect')]",
+    "//button[contains(@aria-label, 'Connect')]",
     "//button[.//span[text()='Connect']]",
-    "//a[.//span[text()='Connect']]"
+    "//span[text()='Connect']/ancestor::button",
+    ".pvs-profile-actions button.artdeco-button--primary",
   ],
   MORE_BUTTONS: [
-    "//*[@id='workspace']/div/div/div[1]/div/div/div[1]/div/section/div/div/div[2]/div[3]/div/div/div[3]/button/span",
+    "//*[@id='workspace']/div/div/div[1]/div/div/div[1]/div/section/div/div/div[2]/div[3]/div/div/div[3]/button", // Explicit User XPath
     "button[aria-label='More actions']",
     "button[aria-label='More']",
-    "//button[@aria-label='More actions' or @aria-label='More']",
-    "//button[contains(@class, 'pvs-profile-actions__action')]//span[text()='More']/..",
-    "//button[contains(@class, 'artdeco-button--secondary') and (contains(., 'More') or contains(@aria-label, 'More actions'))]"
+    "//button[contains(@aria-label, 'More')]",
   ],
   DROPDOWN_CONNECT: [
-    "//*[@id=':r1t:']/div/div/div[3]/div/div/a/div",
+    "//*[@id=':rs:']/div/div/div[3]/div/div/a/div", // Explicit User XPath
     "div[role='button'][aria-label^='Connect']",
-    "//div[@role='button' and (@aria-label='Connect' or contains(@aria-label, 'Connect'))]",
-    "//div[@role='button']//span[text()='Connect']/..",
-    "//li//div[contains(., 'Connect')]",
-    "//span[text()='Connect']"
+    "//div[@role='button'][contains(@aria-label, 'Connect')]",
+    "//li[contains(., 'Connect')]",
   ],
   SEND_INVITE: [
     "button[aria-label='Send now']",
     "button[aria-label='Send invitation']",
     "//button[@aria-label='Send now' or @aria-label='Send invitation']",
     "//button[contains(@class, 'artdeco-button--primary') and (contains(., 'Send') or contains(., 'Done'))]",
-    "//div[contains(@class, 'artdeco-modal')]//button[contains(., 'Send')]",
-    "//button[contains(., 'Send') and not(contains(., 'note'))]"
   ],
   ADD_NOTE: [
-    "button[aria-label='Add a note']", // Static CSS - Highly reliable for Ember
-    "//button[@aria-label='Add a note']",
+    "button[aria-label='Add a note']", 
     "//button[contains(., 'Add a note')]",
-    "//button[contains(., 'Add Note')]",
-    "//div[contains(@class, 'artdeco-modal')]//button[contains(., 'Add a note')]",
-    "//button[contains(@class, 'artdeco-button--secondary') and contains(., 'Add a note')]",
-    "//button[contains(@class, 'artdeco-button--secondary') and (contains(., 'Add note') or contains(., 'Add a note'))]",
-    "//button[.//span[text()='Add a note']]",
-    "//button[.//span[text()='Add note']]"
   ],
-  MESSAGE_BOX: [
-    "textarea[name='message']",
-    "textarea#custom-message",
-    "//textarea[@name='message' or @id='custom-message']",
-    "//*[@role='textbox' or @aria-multiline='true']",
-    "//div[contains(@class, 'msg-form__contenteditable')]",
-    "//div[contains(@class, 'ql-editor')]",
-    "//textarea[contains(@class, 'artdeco-text-area__element')]"
+  MESSAGE_BUTTON_1ST: [
+    "//*[@id='workspace']/div/div/div[1]/div/div/div[1]/div/section/div/div/div[2]/div[3]/div/div/div[1]/a/span", // Explicit User XPath
+    "//button[contains(., 'Message') and contains(@class, 'primary')]",
+  ],
+  MESSAGE_TEXTAREA_1ST: [
+    "div[id^='msg-form-ember'][role='textbox']", // Handle dynamic Ember ID
+    ".msg-form__contenteditable",
+    "//*[@role='textbox' and contains(@id, 'msg-form-ember')]",
+  ],
+  MESSAGE_SEND_1ST: [
+    "button[id^='msg-form-ember'].msg-form__send-button", // Handle dynamic Ember ID
+    "//button[contains(@class, 'msg-form__send-button')]",
   ]
 };
 
@@ -214,85 +202,55 @@ class AutomationEngine {
       let page: Page | null = null;
 
       if (!isSimulation) {
-        // Real Browser Mode - Connecting to existing session
         try {
           console.log('Connecting to Brave via remote debugging (127.0.0.1:9222)...');
-          
           this.browser = await (puppeteer as any).connect({
             browserURL: 'http://127.0.0.1:9222',
             defaultViewport: null
           });
           
           const pages = await this.browser!.pages();
-          console.log('--- Connected to Browser ---');
-          pages.forEach((p, i) => console.log(`Tab ${i}: ${p.url()}`));
-          console.log('---------------------------');
-
           page = pages.find(p => p.url().includes('linkedin.com')) || await this.browser!.newPage();
-          
-          // Bypass CSP for the page
           await page.setBypassCSP(true);
-          
           console.log('Session verified via remote debugging.');
-          await humanDelay(2000, 4000);
         } catch (e: any) {
-          console.error("Failed to connect to browser. Ensure Brave is running with --remote-debugging-port=9222", e);
+          console.error("Failed to connect to browser.", e);
           Logs.add(null, 'ERROR', 'FAILED', `Connection failed: ${e.message}`);
           this.isRunning = false;
           return;
         }
-      } else {
-        console.log('Running in SIMULATION mode');
-        Logs.add(null, 'START', 'INFO', 'Started in Simulation Mode');
       }
 
-      // --- TAB SYNC LAYER ---
       const syncTab = async () => {
           if (!this.browser) return null;
           const allPages = await this.browser.pages();
-          console.log('--- Current Open Tabs ---');
-          allPages.forEach((p, i) => console.log(`Tab ${i}: ${p.url()}`));
-          console.log('-------------------------');
-          
-          // Explicitly find the LinkedIn tab and bring to front
           const active = allPages.find(p => p.url().includes('linkedin.com'));
-          if (!active) {
-              throw new Error('LinkedIn tab not found (Ensure it is open in Brave)');
-          }
-          
+          if (!active) throw new Error('LinkedIn tab not found');
           await active.bringToFront();
           await active.setBypassCSP(true);
-          console.log('Using page:', active.url());
           return active;
       };
 
-      // Keep running as long as isRunning is true
       while (this.isRunning) {
-        // Refresh page reference from current browser state
         page = isSimulation ? null : await syncTab();
         const hasMore = await this.processQueue(page, settings, isSimulation, syncTab);
-        
         if (!hasMore) {
           console.log('No more leads to process. Waiting 60 seconds...');
           await humanDelay(60000, 90000);
         }
-
         Object.assign(settings, Settings.getAll());
       }
-
     } catch (error: any) {
       console.error('Automation engine error:', error);
       Logs.add(null, 'ENGINE', 'ERROR', error.message);
     } finally {
       if (this.browser) await this.browser.disconnect();
       this.isRunning = false;
-      Logs.add(null, 'STOP', 'INFO', 'Automation stopped');
     }
   }
 
   stop() {
     this.isRunning = false;
-    console.log('Stopping automation engine...');
   }
 
   getIsRunning() {
@@ -312,313 +270,128 @@ class AutomationEngine {
         console.log(`Processing lead: ${lead.first_name} ${lead.last_name} (Status: ${lead.status})`);
         
         if (isSimulation) {
-          // --- SIMULATION MODE ---
           await humanDelay(2000, 4000);
+          Leads.updateStatus(lead.id, lead.status === 'NEW' ? 'CONNECT_SENT' : 'MSG_SENT');
+          continue;
+        }
+
+        page = await syncTab();
+        if (!page) throw new Error("Browser page not initialized");
+
+        // 1. Navigate
+        await page.goto(lead.linkedin_url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await humanDelay(2000, 4000); 
+        await simulateScroll(page);
+        await humanMoveMouse(page);
+
+        // 2. Check Connection Level
+        const connectionText = await cdpEvaluate(page, `
+          (function() {
+            const el = document.evaluate("${SELECTORS.CONNECTION_LEVEL}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            return el ? el.innerText : "";
+          })()
+        `);
+        
+        const is1stDegree = connectionText.includes('1st');
+        console.log(`Connection Level detected: ${connectionText} (is1stDegree: ${is1stDegree})`);
+
+        if (is1stDegree) {
+          // --- ROUTE 3: ALREADY CONNECTED ---
+          console.log("Initiating messaging flow for 1st degree connection...");
           
-          if (lead.status === 'NEW' || lead.status === 'CONNECT_QUEUED') {
-             Leads.updateStatus(lead.id, 'CONNECT_SENT');
-             Logs.add(lead.id, 'CONNECT', 'SUCCESS', `[SIMULATION] Connection sent`);
-          } else if (lead.status === 'MSG_QUEUED' || lead.status === 'CONNECTED') {
-             Leads.updateStatus(lead.id, 'MSG_SENT');
-             Logs.add(lead.id, 'MESSAGE', 'SUCCESS', `[SIMULATION] Message sent`);
-          }
-        } else {
-          // --- REAL BROWSER MODE ---
-          // Always refresh tab before navigation
-          page = await syncTab();
-          if (!page) throw new Error("Browser page not initialized");
+          let msgClicked = await forceClick(page, SELECTORS.MESSAGE_BUTTON_1ST);
+          if (!msgClicked) throw new Error("Could not find Message button for 1st degree connection");
 
-          // 1. Navigate with Retry
-          let navigationSuccess = false;
-          for (let i = 0; i < 3; i++) {
-              if (!this.isRunning) break;
-              try {
-                  console.log(`Navigating to ${lead.linkedin_url} (Attempt ${i+1})`);
-                  await page.goto(lead.linkedin_url, { 
-                    waitUntil: 'domcontentloaded', 
-                    timeout: 60000
-                  });
-                  
-                  // Wait for LinkedIn to finish rendering the React/Ember app
-                  try {
-                      const rootCheck = `(function() {
-                          const root = document.querySelector('#w-react-root') || document.querySelector('.authentication-outlet') || document.querySelector('#content-main');
-                          return root && root.children.length > 0;
-                      })()`;
-                      const startTime = Date.now();
-                      let ready = false;
-                      while (Date.now() - startTime < 5000) {
-                          if (await cdpEvaluate(page, rootCheck)) {
-                              ready = true;
-                              break;
-                          }
-                          await new Promise(r => setTimeout(r, 500));
-                      }
-                      if (ready) {
-                          console.log('Page fully rendered, proceeding...');
-                      } else {
-                          console.warn("Timed out waiting for page root, proceeding anyway...");
-                      }
-                  } catch (e) {
-                      console.warn("Error checking for page root, proceeding anyway...");
-                  }
-                  
-                  await humanDelay(500, 1000); 
-                  await simulateScroll(page);
-                  
-                  const title = await page.title();
-                  const finalUrl = page.url();
+          await humanDelay(3000, 5000);
 
-                  if (finalUrl.includes('authwall') || finalUrl.includes('login') || title.includes('Sign Up')) {
-                      throw new Error("REDIRECTED_TO_SECURITY_CHECK");
-                  }
+          // Type Message
+          const msgText = lead.message ? replacePlaceholders(lead.message, lead) : `Hi ${lead.first_name}`;
+          
+          // Physical Click and Paste for Textarea
+          console.log("Locating message textarea...");
+          const textareaSelector = SELECTORS.MESSAGE_TEXTAREA_1ST[0];
+          
+          // Get coordinates for physical click
+          const coords = await cdpEvaluate(page, `
+            (function() {
+              const el = document.querySelector("${textareaSelector}");
+              if (!el) return null;
+              const rect = el.getBoundingClientRect();
+              return { x: Math.floor(rect.left + rect.width / 2), y: Math.floor(rect.top + rect.height / 2) };
+            })()
+          `);
 
-                  navigationSuccess = true;
-                  break;
-              } catch (e: any) {
-                  console.warn(`Navigation attempt ${i+1} failed: ${e.message}`);
-                  await humanDelay(3000, 5000); 
-              }
-          }
-
-          if (!navigationSuccess) throw new Error("Navigation failed after multiple attempts");
-
-          await humanMoveMouse(page);
-          await humanDelay(500, 1000); 
-
-          // --- ROBUSTNESS LAYER: Close any blocking chat windows ---
-          await cdpEvaluate(page, `
-              (function() {
-                const chatHeader = document.querySelector('.msg-overlay-bubble-header');
-                if (chatHeader) {
-                    const closeBtn = chatHeader.querySelector('button[aria-label^="Close"], .msg-overlay-bubble-header__control--close');
-                    if (closeBtn) closeBtn.click();
+          if (coords) {
+              const psClick = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${coords.x}, ${coords.y}); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
+              execSync(`powershell -NoProfile -Command "${psClick}"`);
+              await humanDelay(1000, 2000);
+              
+              const psPaste = `
+                Add-Type -AssemblyName System.Windows.Forms;
+                Set-Clipboard -Value '${msgText.replace(/'/g, "''")}';
+                $brave = (Get-Process | Where-Object {$_.MainWindowTitle -like '*LinkedIn*'} | Select-Object -First 1);
+                if ($brave) {
+                  $code = '[DllImport(\\"user32.dll\\")] public static extern bool SetForegroundWindow(IntPtr h);';
+                  Add-Type -MemberDefinition $code -Name Win -Namespace Native;
+                  [Native.Win]::SetForegroundWindow($brave.MainWindowHandle);
+                  Start-Sleep -Milliseconds 500;
+                  [System.Windows.Forms.SendKeys]::SendWait('^v');
+                  Start-Sleep -Milliseconds 500;
+                  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}');
                 }
-              })()
-          `);
+              `.replace(/\s+/g, ' ').trim();
+              execSync(`powershell -NoProfile -Command "${psPaste}"`);
+              
+              console.log("Message sent via physical interaction.");
+              Leads.updateStatus(lead.id, 'COMPLETED');
+              Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent to 1st degree connection');
+          } else {
+              // Fallback to Puppeteer type
+              await page.type(textareaSelector, msgText, { delay: 50 });
+              await forceClick(page, SELECTORS.MESSAGE_SEND_1ST);
+              Leads.updateStatus(lead.id, 'COMPLETED');
+              Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent via fallback');
+          }
 
-          // Determine Action: Connect or Message
-          const pageState = await cdpEvaluate(page, `
-              (function() {
-                const buttons = Array.from(document.querySelectorAll('button'));
-                const isPending = buttons.some(b => {
-                    const t = b.innerText.toLowerCase();
-                    return t.includes('pending') || t.includes('requested') || t.includes('withdraw');
-                });
-                const isConnected = buttons.some(b => {
-                    const text = b.innerText.toLowerCase();
-                    return (text === 'message' || text.includes('send message')) && 
-                           (b.classList.contains('artdeco-button--primary') || b.classList.contains('pvs-profile-actions__action'));
-                });
-                return { isPending, isConnected };
-              })()
-          `);
+        } else {
+          // --- ROUTE 1 & 2: CONNECTION FLOW ---
+          console.log("Initiating connection request flow...");
 
-          if (lead.status === 'NEW' || lead.status === 'CONNECT_QUEUED') {
-              if (pageState.isConnected) {
-                  console.log("Lead is already connected. Updating status.");
-                  const nextStatus = lead.message ? 'MSG_QUEUED' : 'CONNECTED';
-                  Leads.updateStatus(lead.id, nextStatus);
-                  Logs.add(lead.id, 'CONNECT', 'INFO', `Already connected, moving to ${nextStatus}`);
-                  continue;
-              }
+          let clicked = await forceClick(page, SELECTORS.CONNECT_BUTTONS);
 
-              if (pageState.isPending) {
-                  console.log("Connection request is already pending.");
-                  Leads.updateStatus(lead.id, 'CONNECT_SENT');
-                  Logs.add(lead.id, 'CONNECT', 'INFO', "Already pending");
-                  continue;
-              }
+          if (!clicked) {
+            console.log("Connect button not found in main bar, trying 'More' menu...");
+            const moreClicked = await forceClick(page, SELECTORS.MORE_BUTTONS);
+            if (moreClicked) {
+              await humanDelay(2000, 3000);
+              clicked = await forceClick(page, SELECTORS.DROPDOWN_CONNECT);
+            }
+          }
 
-              // --- CONNECTION FLOW ---
-              console.log("Initiating connection request...");
+          if (clicked) {
+            console.log("Connect button clicked. Handling modals...");
+            
+            // Handle "How do you know" if it appears
+            await forceClick(page, "//button[contains(., 'Other')]", 2000);
+            await forceClick(page, "//button[contains(., 'Connect') and not(contains(., 'Other'))]", 2000);
 
-              let clicked = await forceClick(page, SELECTORS.CONNECT_BUTTONS);
+            // Add Note
+            const noteAdded = await forceClick(page, SELECTORS.ADD_NOTE, 3000);
+            if (noteAdded && lead.message) {
+                const personalizedMessage = replacePlaceholders(lead.message, lead);
+                await page.keyboard.type(personalizedMessage, { delay: 60 });
+                await humanDelay(1000, 2000);
+            }
 
-              if (!clicked) {
-                  console.log("Connect button not found in main bar, trying 'More' menu...");
-                  const moreClicked = await forceClick(page, SELECTORS.MORE_BUTTONS);
-                  if (moreClicked) {
-                      await humanDelay(3500, 4500); 
-                      clicked = await forceClick(page, SELECTORS.DROPDOWN_CONNECT);
-                  }
-              }
-
-              if (clicked) {
-                  console.log("Connect button clicked. Waiting for modal...");
-                  
-                  // 2. Handle "How do you know" modal (Pre-Note Step)
-                  const otherXPath = "//button[contains(., 'Other')]";
-                  const otherClicked = await forceClick(page, otherXPath, 4000); 
-                  if (otherClicked) {
-                      console.log("Handling 'How do you know' modal...");
-                      await humanDelay(3500, 4500); 
-                      const nextStepXPaths = [
-                        "//button[contains(., 'Connect') and not(contains(., 'Other'))]",
-                        "//button[contains(., 'Next')]",
-                        "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Connect')]",
-                        "//button[contains(@class, 'artdeco-button--primary') and contains(., 'Next')]"
-                      ];
-                      await forceClick(page, nextStepXPaths, 4500); 
-                      await humanDelay(4500, 6000); 
-                  }
-
-                  // 3. Type Note
-                  const personalizedMessage = lead.message ? replacePlaceholders(lead.message, lead) : null;
-                  let noteAdded = false;
-                  if (personalizedMessage) {
-                      console.log("Executing physical click on textarea and pasting...");
-                      
-                      try {
-                          const physicalX = 956;
-                          const physicalY = 337;
-                          const psClickCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${physicalX}, ${physicalY}); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
-                          
-                          // Click Once
-                          execSync(`powershell -NoProfile -Command "${psClickCommand}"`);
-                          await new Promise(r => setTimeout(r, 1000));
-                          // Click Twice (Double click for focus assurance)
-                          execSync(`powershell -NoProfile -Command "${psClickCommand}"`);
-                          
-                          console.log("Textarea clicked. Waiting 5 seconds before pasting...");
-                          await new Promise(r => setTimeout(r, 5000));
-                          
-                          console.log("Pasting message via PowerShell...");
-                          
-                          const psPasteScript = `
-                            Add-Type -AssemblyName System.Windows.Forms;
-                            Set-Clipboard -Value '${personalizedMessage!.replace(/'/g, "''")}';
-                            Start-Sleep -Milliseconds 500;
-                            $brave = (Get-Process | Where-Object {$_.MainWindowTitle -like '*LinkedIn*'} | Select-Object -First 1);
-                            if ($brave) {
-                              $code = '[DllImport(\\"user32.dll\\")] public static extern bool SetForegroundWindow(IntPtr h);';
-                              Add-Type -MemberDefinition $code -Name Win -Namespace Native;
-                              [Native.Win]::SetForegroundWindow($brave.MainWindowHandle);
-                              Start-Sleep -Milliseconds 500;
-                              [System.Windows.Forms.SendKeys]::SendWait('^v');
-                            }
-                          `.replace(/\s+/g, ' ').trim();
-
-                          execSync(`powershell -NoProfile -Command "${psPasteScript}"`);
-                          console.log("Paste command executed. Waiting 500ms before Send click...");
-                          await new Promise(r => setTimeout(r, 500));
-
-                          // OS-LEVEL CLICK (Send Button: x=1188, y=469)
-                          console.log('Executing physical click on Send button (x=1188, y=469)...');
-                          const psSendClickCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(1188, 469); $code = '[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int dwExtraInfo);'; Add-Type -MemberDefinition $code -Name User32 -Namespace Native; [Native.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Native.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
-                          execSync(`powershell -NoProfile -Command "${psSendClickCommand}"`);
-                          
-                          console.log("Send button clicked physically. Waiting 2 seconds...");
-                          await new Promise(r => setTimeout(r, 2000));
-                          noteAdded = true;
-                      } catch (err: any) {
-                          console.warn('Physical click/paste/send failed:', err.message);
-                      }
-                  }
-
-                  // 4. Final Send (CDP fallback for Send click and status tracking)
-                  const sendClicked = await forceClick(page, SELECTORS.SEND_INVITE, 5000);
-
-                  if (sendClicked || noteAdded) {
-                      await humanDelay(5000, 7000);
-                      console.log(`Connection request processed ${noteAdded ? 'with' : 'without'} note!`);
-                      Leads.updateStatus(lead.id, 'CONNECT_SENT');
-                      // Clear next_action_at so it doesn't get picked up as 'past due' incorrectly
-                      Leads.updateActionTimestamps(lead.id, null);
-                      Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${noteAdded ? 'with' : 'without'} note`);
-                  } else {
-                      const sentCheck = await cdpEvaluate(page, `
-                        (function() {
-                          const body = document.body.innerText.toLowerCase();
-                          return body.includes('invitation sent') || body.includes('invite sent') || body.includes('pending') || body.includes('withdraw');
-                        })()
-                      `);
-                      if (sentCheck) {
-                        Leads.updateStatus(lead.id, 'CONNECT_SENT');
-                        Logs.add(lead.id, 'CONNECT', 'SUCCESS', 'Connection request sent (Verified via status)');
-                      } else {
-                        throw new Error("Failed to click final Send button and status did not change.");
-                      }
-                  }
-              } else {
-                  throw new Error("Connect button not found or could not be clicked.");
-              }
-          } else if (lead.status === 'MSG_QUEUED' || lead.status === 'CONNECTED') {
-              // --- MESSAGING FLOW ---
-              if (!pageState.isConnected) {
-                  console.warn("Lead not connected yet, skipping message.");
-                  continue; 
-              }
-
-              console.log("Initiating message flow...");
-              const messageXPath = "//button[contains(., 'Message') and contains(@class, 'primary')]";
-              try {
-                  const startTime = Date.now();
-                  let msgReady = false;
-                  while (Date.now() - startTime < 7000) {
-                      if (await cdpEvaluate(page, `document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue !== null`)) {
-                          msgReady = true;
-                          break;
-                      }
-                      await new Promise(r => setTimeout(r, 1000));
-                  }
-                  
-                  if (msgReady) {
-                      await cdpEvaluate(page, `
-                          (function() {
-                              const el = document.evaluate("${messageXPath}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                              if (el) el.click();
-                          })()
-                      `);
-                      await humanDelay(5000, 7000); 
-
-                      const msgText = lead.message ? replacePlaceholders(lead.message, lead) : "Hi " + lead.first_name;
-
-                      const editorSelector = '.msg-form__contenteditable';
-                      const editorStartTime = Date.now();
-                      let editorReady = false;
-                      while (Date.now() - editorStartTime < 7000) {
-                          if (await cdpEvaluate(page, `document.querySelector("${editorSelector}") !== null`)) {
-                              editorReady = true;
-                              break;
-                          }
-                          await new Promise(r => setTimeout(r, 1000));
-                      }
-                      
-                      if (editorReady) {
-                          await page.click(editorSelector);
-                          await page.type(editorSelector, msgText, { delay: 80 });
-                          await humanDelay(3500, 4500); 
-
-                          const sendMsgSelector = 'button.msg-form__send-button';
-                          const sendStartTime = Date.now();
-                          let sendReady = false;
-                          while (Date.now() - sendStartTime < 7000) {
-                              if (await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}") !== null`)) {
-                                  sendReady = true;
-                                  break;
-                              }
-                              await new Promise(r => setTimeout(r, 1000));
-                          }
-                          
-                          if (sendReady) {
-                              await cdpEvaluate(page, `document.querySelector("${sendMsgSelector}").click()`);
-                              await humanDelay(4000, 6000); 
-                              console.log("Message sent!");
-                              Leads.updateStatus(lead.id, 'COMPLETED');
-                              Logs.add(lead.id, 'MESSAGE', 'SUCCESS', 'Message sent to connection');
-                          } else {
-                              throw new Error("Could not find Send message button");
-                          }
-                      } else {
-                          throw new Error("Could not find message editor");
-                      }
-                  } else {
-                      throw new Error("Message button not found");
-                  }
-              } catch (e: any) {
-                  throw new Error("Failed to send message: " + e.message);
-              }
+            const sent = await forceClick(page, SELECTORS.SEND_INVITE, 3000);
+            if (sent) {
+              Leads.updateStatus(lead.id, 'CONNECT_SENT');
+              Logs.add(lead.id, 'CONNECT', 'SUCCESS', `Connection request sent ${lead.message ? 'with' : 'without'} note`);
+            } else {
+              throw new Error("Failed to click final Send button");
+            }
+          } else {
+            throw new Error("Connect button not found in main bar or More menu");
           }
         }
 
@@ -631,7 +404,6 @@ class AutomationEngine {
         console.error(`Failed to process lead ${lead.id}:`, error);
         Logs.add(lead.id, 'PROCESS', 'FAILED', error.message);
         Leads.updateStatus(lead.id, 'FAILED');
-        if (error.message.includes('AUTHENTICATION_FAILED')) break;
       }
     }
     return true;
